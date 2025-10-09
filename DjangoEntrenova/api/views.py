@@ -9,9 +9,9 @@ from django.conf import settings
 from rest_framework.permissions import AllowAny 
 
 class ChatbotView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [AllowAny] #Qualquer um pode acessar isso, deve ser mudado depois
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request):
         api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
             return Response(
