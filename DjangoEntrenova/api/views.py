@@ -1,61 +1,70 @@
-from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from .supabase_client import supabase
+from rest_framework import status
+from rest_framework.permissions import AllowAny
 import os
 import google.generativeai as genai
-from rest_framework import status
-from django.conf import settings
-from rest_framework.permissions import AllowAny 
+
+try:
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        raise ValueError("A chave da API do Gemini não foi configurada no ambiente.")
+    
+    genai.configure(api_key=api_key)
+
+    SYSTEM_PROMPT = "Seu objetivo é ser um assistente amigável e educado, seu objetivo é extrair todas as informações da empresa de quem está digitando, como quantidade de funcionários, porte de empresa, cargo de quem está digitando..., Não devolva DE FORMA ALGUMA respostas que contenham ** como forma de negrito"
+    
+    MODEL = genai.GenerativeModel(
+        model_name="gemini-2.0-flash-001",
+        system_instruction=SYSTEM_PROMPT
+    )
+except Exception as e:
+    print(f"ERRO CRÍTICO: Falha ao inicializar o modelo Gemini: {e}")
+    MODEL = None
+
 
 class ChatbotView(APIView):
-    permission_classes = [AllowAny] #Qualquer um pode acessar isso, deve ser mudado depois
+    permission_classes = [AllowAny]
 
     def post(self, request):
-        api_key = os.getenv("GEMINI_API_KEY")
-        if not api_key:
+        if not MODEL:
             return Response(
-                {"error": "A chave da API do Gemini não foi configurada no servidor"},
+                {"error": "O serviço de IA não está configurado corretamente no servidor."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+        history_from_frontend = request.data.get('history')
         
-        genai.configure(api_key=api_key)
-
-        user_message = request.data.get('message')
-        history_from_frontend = request.data.get('history', [])
-
-        if not user_message:
+        if not history_from_frontend or not isinstance(history_from_frontend, list):
             return Response(
-                {"error": "Nenhuma mensagem fornecida."},
+                {"error": "O campo 'history' é inválido ou não foi fornecido."},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
-        system_prompt = "Seu objetivo é ser um assistente amigável e educado, seu objetivo é extrair todas as informações da empresa de quem está digitando, como quantidade de funcionários, porte de empresa, cargo de quem está digitando..."
-        
-        model = genai.GenerativeModel(
-            model_name="gemini-2.0-flash-001",
-            system_instruction=system_prompt
-        )
 
-        api_history = []
-        for message in history_from_frontend:
-            if message.get('role') and message.get('text'):
-                 api_history.append({
-                    'role': message['role'],
-                    'parts': [{'text': message['text']}]
-                })
-
+        latest_user_message_obj = history_from_frontend[-1]
+        user_message_text = latest_user_message_obj.get('content', '')
+        conversation_history_for_api = history_from_frontend[:-1]
+    
+        api_history_formatted = []
+        for message in conversation_history_for_api:
+            role = 'model' if message.get('role') == 'bot' else 'user'
+            
+            api_history_formatted.append({
+                'role': role,
+                'parts': [{'text': message.get('content', '')}]
+            })
+        
         try:
-            chat_session = model.start_chat(history=api_history)
-            response = chat_session.send_message(user_message)
+            chat_session = MODEL.start_chat(history=api_history_formatted)
+            response = chat_session.send_message(user_message_text)
             
             return Response(
                 {'reply': response.text},
                 status=status.HTTP_200_OK
             )
         except Exception as e:
-            print(f"Erro na API do Gemini: {e}")
+            print(f"Erro na comunicação com a API do Gemini: {e}")
             return Response(
-                {"error": "Ocorreu um erro ao se comunicar com a IA"},
+                {"error": "Ocorreu um erro ao se comunicar com o serviço de IA."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
