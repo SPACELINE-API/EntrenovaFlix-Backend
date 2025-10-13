@@ -3,8 +3,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from .models import Posts, Comentarios, Usuario
-from .serializers import PostSerializer, ComentarioSerializer, UserSerializer
+from .models import Posts, Comentarios, Usuario, Empresa, Plan, Subscription
+from .serializers import PostSerializer, ComentarioSerializer, UserSerializer, EmpresaSerializer, PlanSerializer, SubscriptionSerializer
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 class RegisterView(generics.CreateAPIView):
@@ -17,7 +17,7 @@ class MeuViewSet(APIView):
     permission_classes = [IsAuthenticated]
     def get(self, request):
         return Response({"mensagem": f"Olá {request.user.email}"})
-    
+
 class PostListCreateView(generics.ListCreateAPIView):
     queryset = Posts.objects.all().order_by('-created_at')
     serializer_class = PostSerializer
@@ -45,3 +45,33 @@ class ComentarioListCreateView(generics.ListCreateAPIView):
         post_id = self.kwargs.get('post_id')
         post = Posts.objects.get(id=post_id)
         serializer.save(usuario=self.request.user, post=post)
+
+class EmpresaListCreateView(generics.ListCreateAPIView):
+    queryset = Empresa.objects.all()
+    serializer_class = EmpresaSerializer
+    permission_classes = [IsAuthenticated]
+
+class EmpresaDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Empresa.objects.all()
+    serializer_class = EmpresaSerializer
+    permission_classes = [IsAuthenticated]
+
+class PlanListCreateView(generics.ListCreateAPIView):
+    queryset = Plan.objects.all()
+    serializer_class = PlanSerializer
+    permission_classes = [IsAuthenticated]
+
+class PlanDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Plan.objects.all()
+    serializer_class = PlanSerializer
+    permission_classes = [IsAuthenticated]
+
+class SubscriptionListCreateView(generics.ListCreateAPIView):
+    queryset = Subscription.objects.all()
+    serializer_class = SubscriptionSerializer
+    permission_classes = [IsAuthenticated]
+
+class SubscriptionDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Subscription.objects.all()
+    serializer_class = SubscriptionSerializer
+    permission_classes = [IsAuthenticated]

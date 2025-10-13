@@ -5,6 +5,53 @@ from django.conf import settings
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 # A importação de 'User' foi removida daqui
 
+
+class Empresa(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    nome = models.CharField(max_length=255, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.nome
+
+    class Meta:
+        db_table = 'empresas'
+
+
+class Plan(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    nome = models.CharField(max_length=100, unique=True)
+    limite_usuarios = models.PositiveIntegerField(default=10)  # Limite padrão
+    preco = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.nome} (limite: {self.limite_usuarios})"
+
+    class Meta:
+        db_table = 'plans'
+
+
+class Subscription(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    empresa = models.OneToOneField(Empresa, on_delete=models.CASCADE)
+    plan = models.ForeignKey(Plan, on_delete=models.CASCADE)
+    ativo = models.BooleanField(default=True)
+    data_inicio = models.DateTimeField(auto_now_add=True)
+    data_fim = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.empresa.nome} - {self.plan.nome}"
+
+    def usuarios_ativos(self):
+        return self.empresa.usuario_set.filter(is_active=True).count()
+
+    def pode_adicionar_usuario(self):
+        return self.usuarios_ativos() < self.plan.limite_usuarios
+
+    class Meta:
+        db_table = 'subscriptions'
+
 class UsuarioManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
         if not email:

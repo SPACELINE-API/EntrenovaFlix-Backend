@@ -1,7 +1,7 @@
 # accounts/serializers.py
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework import serializers
-from .models import Usuario, Posts, Comentarios
+from .models import Usuario, Posts, Comentarios, Empresa, Plan, Subscription
 from rest_framework.validators import UniqueValidator
 from rest_framework.generics import ListCreateAPIView
 from django.utils import timezone
@@ -25,14 +25,14 @@ class ComentarioSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data['data_criacao'] = timezone.now()
         return super().create(validated_data)
-    
+
     def perform_create(self, serializer):
         post_id = self.kwargs.get('post_id')
         try:
             post = Posts.objects.get(id=post_id)
         except Posts.DoesNotExist:
             raise NotFound("Post não encontrado.")
-    
+
         serializer.save(usuario=self.request.user, post=post)
 
 class PostSerializer(serializers.ModelSerializer):
@@ -50,12 +50,41 @@ class PostListCreateView(ListCreateAPIView):
         print("Usuário logado:", self.request.user)
         serializer.save(usuario=self.request.user)
 
+class EmpresaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Empresa
+        fields = ['id', 'nome', 'created_at']
+        read_only_fields = ['id', 'created_at']
+
+class PlanSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Plan
+        fields = ['id', 'nome', 'limite_usuarios', 'preco', 'created_at']
+        read_only_fields = ['id', 'created_at']
+
+class SubscriptionSerializer(serializers.ModelSerializer):
+    empresa = EmpresaSerializer(read_only=True)
+    plan = PlanSerializer(read_only=True)
+    usuarios_ativos = serializers.SerializerMethodField()
+    pode_adicionar_usuario = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Subscription
+        fields = ['id', 'empresa', 'plan', 'ativo', 'data_inicio', 'data_fim', 'usuarios_ativos', 'pode_adicionar_usuario']
+        read_only_fields = ['id', 'data_inicio']
+
+    def get_usuarios_ativos(self, obj):
+        return obj.usuarios_ativos()
+
+    def get_pode_adicionar_usuario(self, obj):
+        return obj.pode_adicionar_usuario()
+
 class UserSerializer(serializers.ModelSerializer):
     cpf = serializers.CharField(
         required=True,
         validators=[UniqueValidator(queryset=Usuario.objects.all())]
     )
-    
+
     class Meta:
         model = Usuario
         # Campos que o frontend vai enviar para o registro
@@ -66,15 +95,13 @@ class UserSerializer(serializers.ModelSerializer):
         }
         read_only_fields = ['id']
 
-
-
     def create(self, validated_data):
         user = Usuario.objects.create_user(
             email=validated_data['email'],
             nome=validated_data['nome'],
             password=validated_data['password'],
             cpf=validated_data['cpf'],
-            empresa=validated_data.get('empresa', ''),
+            empresa=validated_data.get('empresa'),
             role=validated_data.get('role', Usuario.ROLE_CLIENTE) # Define a role padrão se não for enviada
         )
         return user
