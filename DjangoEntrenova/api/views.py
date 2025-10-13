@@ -15,7 +15,7 @@ try:
     SYSTEM_PROMPT = "Seu objetivo é ser um assistente amigável e educado, seu objetivo é extrair todas as informações da empresa de quem está digitando, como quantidade de funcionários, porte de empresa, cargo de quem está digitando..., Não devolva DE FORMA ALGUMA respostas que contenham ** como forma de negrito"
     
     MODEL = genai.GenerativeModel(
-        model_name="gemini-2.0-flash-001",
+        model_name="gemini-1.5-flash",
         system_instruction=SYSTEM_PROMPT
     )
 except Exception as e:
@@ -68,3 +68,27 @@ class ChatbotView(APIView):
                 {"error": "Ocorreu um erro ao se comunicar com o serviço de IA."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+class funcionarios(APIView):
+    permission_classes = [AllowAny]
+    def post(self, request):
+        nome = request.data.get("nome")
+        cpf = request.data.get("cpf")
+        email = request.data.get("email")
+        telefone = request.data.get("telefone")
+        nascimento = request.data.get("nascimento")
+        senha = request.data.get("senha")
+
+        print("--- DADOS DO FUNCIONÁRIO RECEBIDOS ---")
+        print(f"Nome: {nome}")
+        print(f"CPF: {cpf}")
+        print(f"Email: {email}")
+        print(f"Telefone: {telefone}")
+        print(f"Nascimento: {nascimento}")
+        print(f"Senha: {senha}")
+        print("------------------------------------")
+        
+        return Response(
+            {"message": "Funcionário recebido com sucesso!"},
+            status=status.HTTP_201_CREATED
+        )
