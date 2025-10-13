@@ -47,3 +47,31 @@
 ### Compatibilidade
 - Código existente não deve ser afetado, pois mudanças são aditivas
 - Campo `empresa` em Usuario era texto, agora é FK, mas pode ser nullable inicialmente
+
+## Arquivos Alterados/Criados/Deletados
+
+### Arquivos Criados
+- `TODO.md`: Arquivo de documentação das tarefas e mudanças realizadas (novo arquivo para rastrear progresso)
+- `DjangoEntrenova/accounts/migrations/0002_auto_20251013_1618.py`: Migration automática gerada pelo Django para criar as novas tabelas (empresas, plans, subscriptions) e alterar o campo empresa do modelo Usuario
+
+### Arquivos Modificados
+- `DjangoEntrenova/accounts/models.py`:
+  - Adicionados modelos Empresa, Plan e Subscription
+  - Alterado campo empresa do modelo Usuario de TextField para ForeignKey(Empresa, on_delete=models.SET_NULL, null=True, blank=True)
+  - Motivo: Implementar sistema de planos premium com controle de usuários por empresa
+
+- `DjangoEntrenova/accounts/serializers.py`:
+  - Adicionados serializers EmpresaSerializer, PlanSerializer e SubscriptionSerializer
+  - Motivo: Permitir serialização/desserialização dos novos modelos para API REST
+
+- `DjangoEntrenova/accounts/views.py`:
+  - Adicionadas views EmpresaListCreateView, EmpresaDetailView, PlanListCreateView, PlanDetailView, SubscriptionListCreateView, SubscriptionDetailView
+  - Motivo: Criar endpoints REST para gerenciar empresas, planos e assinaturas
+
+- `DjangoEntrenova/accounts/urls.py`:
+  - Adicionadas URLs para os novos endpoints de empresas, planos e assinaturas
+  - Motivo: Expor as novas funcionalidades através de URLs REST
+
+### Arquivos Não Alterados
+- Nenhum arquivo foi deletado nesta implementação
+- Outros arquivos do projeto permaneceram inalterados para manter compatibilidade
