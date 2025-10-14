@@ -73,6 +73,7 @@ class funcionarios(APIView):
     permission_classes = [AllowAny]
     def post(self, request):
         nome = request.data.get("nome")
+        sobrenome = request.data.get("sobrenome")
         cpf = request.data.get("cpf")
         email = request.data.get("email")
         telefone = request.data.get("telefone")
@@ -81,6 +82,7 @@ class funcionarios(APIView):
 
         print("--- DADOS DO FUNCIONÁRIO RECEBIDOS ---")
         print(f"Nome: {nome}")
+        print(f"Sobrenome: {sobrenome}")
         print(f"CPF: {cpf}")
         print(f"Email: {email}")
         print(f"Telefone: {telefone}")
