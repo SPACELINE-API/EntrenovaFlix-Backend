@@ -1,7 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 import os
 import google.generativeai as genai
 
@@ -70,7 +70,7 @@ class ChatbotView(APIView):
             )
 
 class funcionarios(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     def post(self, request):
         nome = request.data.get("nome")
         sobrenome = request.data.get("sobrenome")
