@@ -1,7 +1,7 @@
 # accounts/serializers.py
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework import serializers
-from .models import Usuario, Posts, Comentarios
+from .models import Usuario, Posts, Comentarios, Empresas
 from rest_framework.validators import UniqueValidator
 from rest_framework.generics import ListCreateAPIView
 from django.utils import timezone
@@ -55,6 +55,8 @@ class UserSerializer(serializers.ModelSerializer):
         required=True,
         validators=[UniqueValidator(queryset=Usuario.objects.all())]
     )
+
+    empresa = serializers.CharField(source='empresa.nome', required=False, allow_blank=True)
     
     class Meta:
         model = Usuario
@@ -69,13 +71,20 @@ class UserSerializer(serializers.ModelSerializer):
 
 
     def create(self, validated_data):
+
+        empresa_data = validated_data.pop('empresa', None)
+        empresa_obj = None
+
+        if empresa_data and empresa_data.get('nome'):
+            empresa_nome = empresa_data.get('nome')
+            empresa_obj, created = Empresas.objects.get_or_create(nome=empresa_nome)
         user = Usuario.objects.create_user(
             email=validated_data['email'],
             nome=validated_data['nome'],
             password=validated_data['password'],
             cpf=validated_data['cpf'],
-            empresa=validated_data.get('empresa', ''),
-            role=validated_data.get('role', Usuario.ROLE_CLIENTE) # Define a role padrão se não for enviada
+            empresa=empresa_obj,
+            role=validated_data.get('role', Usuario.ROLE_CLIENTE)
         )
         return user
 

@@ -28,6 +28,18 @@ class UsuarioManager(BaseUserManager):
         return self.create_user(email, password, **extra_fields)
 
 
+class Empresas(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    nome = models.CharField(max_length=255, unique=True)
+    # Você pode adicionar outros campos aqui depois, como CNPJ, etc.
+
+    def __str__(self):
+        return self.nome
+
+    class Meta:
+        db_table = 'empresas'
+        verbose_name_plural = 'Empresas'
+
 class Usuario(AbstractBaseUser, PermissionsMixin):
     ROLE_ADMIN = 'admin'
     ROLE_RH = 'rh'
@@ -47,10 +59,8 @@ class Usuario(AbstractBaseUser, PermissionsMixin):
     is_active = models.BooleanField(default=True)
     email = models.EmailField(unique=True) 
     nome = models.TextField()
-    
     cpf = models.CharField(unique=True, max_length=14, null=True, blank=True)
-    
-    empresa = models.TextField(blank=True, null=True)
+    empresa = models.ForeignKey(Empresas, on_delete=models.SET_NULL, null=True, blank=True)
     role = models.CharField(
         max_length=20,
         choices=ROLE_CHOICES,
