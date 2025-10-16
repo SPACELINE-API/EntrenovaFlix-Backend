@@ -9,7 +9,7 @@ import json
 from rest_framework.permissions import IsAuthenticated 
 
 class ChatbotView(APIView):
-    permission_classes = [AllowAny] #Necessário mudança, qualquer um tem acesso
+    permission_classes = [AllowAny]
 
     def post(self, request):
         if not gemini_service:
@@ -20,10 +20,17 @@ class ChatbotView(APIView):
 
         user_message = request.data.get('message')
         history = request.data.get('history', [])
+        resp_form = request.data.get('formu')
+
+        if not history and resp_form:
+            print("--- DADOS DO FORMULÁRIO RECEBIDOS (INÍCIO DA CONVERSA) ---")
+            print(resp_form)
+            print("-------------------------------------------------------------")
+            
 
         if not user_message:
             return Response(
-                {"error": "O campo 'history' é inválido ou não foi fornecido."},
+                {"error": "O campo 'message' é obrigatório e não foi fornecido."},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
@@ -136,8 +143,6 @@ class DiagnosticAIView(APIView):
             
             current_system_prompt = system_prompt_template.format(dimension_title=dimension_title)
             user_message = f"Aqui estão os resultados para a dimensão '{dimension_title}':\n{formatted_responses}"
-            
-            print(f"--- Enviando para IA (Dimensão: {dimension_title}) ---\n{user_message}\n--------------------")
 
             ai_result = self._call_gemini_api(current_system_prompt, user_message)
 
