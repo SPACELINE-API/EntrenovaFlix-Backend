@@ -130,3 +130,19 @@ class Formulario1(models.Model):
     
     class Meta:
         db_table = 'formulario1'
+
+class PendenteAprovado(models.Model):
+    cnpj_empresa = models.CharField(max_length=20, unique=True)
+    plano = models.CharField(max_length=50)
+    status_pagamento = models.CharField(
+        max_length=20,
+        choices=[('pendente', 'Pendente'), ('aprovado', 'Aprovado')],
+        default='pendente'
+    )
+
+    class Meta:
+        db_table = 'pendenteAprovado'
+
+    def aprovar_pagamento(self):
+        self.status_pagamento = 'aprovado'
+        self.save()
