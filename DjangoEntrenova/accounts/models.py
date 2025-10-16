@@ -3,7 +3,6 @@ from django.db import models
 import uuid
 from django.conf import settings
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
-# A importação de 'User' foi removida daqui
 
 class UsuarioManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
@@ -97,7 +96,7 @@ class Posts(models.Model):
 
 class Comentarios(models.Model):
     usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    post = models.ForeignKey(Posts, on_delete=models.CASCADE)  # aqui é o problema
+    post = models.ForeignKey(Posts, on_delete=models.CASCADE)
     conteudo = models.TextField()
     data_criacao = models.DateTimeField(blank=True, null=True)
     resposta_a = models.ForeignKey('self', on_delete=models.CASCADE, db_column='resposta_a', blank=True, null=True)

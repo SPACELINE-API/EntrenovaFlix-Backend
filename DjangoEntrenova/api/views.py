@@ -1,7 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 import os
 import google.generativeai as genai
 
@@ -70,9 +70,10 @@ class ChatbotView(APIView):
             )
 
 class funcionarios(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     def post(self, request):
         nome = request.data.get("nome")
+        sobrenome = request.data.get("sobrenome")
         cpf = request.data.get("cpf")
         email = request.data.get("email")
         telefone = request.data.get("telefone")
@@ -81,6 +82,7 @@ class funcionarios(APIView):
 
         print("--- DADOS DO FUNCIONÁRIO RECEBIDOS ---")
         print(f"Nome: {nome}")
+        print(f"Sobrenome: {sobrenome}")
         print(f"CPF: {cpf}")
         print(f"Email: {email}")
         print(f"Telefone: {telefone}")
