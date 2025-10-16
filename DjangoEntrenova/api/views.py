@@ -23,7 +23,7 @@ class ChatbotView(APIView):
 
         if not user_message:
             return Response(
-                {"error": "Nenhuma mensagem fornecida."},
+                {"error": "O campo 'history' é inválido ou não foi fornecido."},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
@@ -39,9 +39,9 @@ class ChatbotView(APIView):
             )
         
         except Exception as e:
-            print(f"Erro na API do Gemini: {e}")
+            print(f"Erro na comunicação com a API do Gemini: {e}")
             return Response(
-                {"error": "Ocorreu um erro ao se comunicar com a IA"},
+                {"error": "Ocorreu um erro ao se comunicar com o serviço de IA."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
@@ -152,3 +152,30 @@ class DiagnosticAIView(APIView):
 
         print(f"DEBUG: JSON final enviado para o frontend: {final_diagnosis}")
         return Response(final_diagnosis, status=status.HTTP_200_OK)
+    
+    
+class funcionarios(APIView):
+    permission_classes = [IsAuthenticated]
+    def post(self, request):
+        nome = request.data.get("nome")
+        sobrenome = request.data.get("sobrenome")
+        cpf = request.data.get("cpf")
+        email = request.data.get("email")
+        telefone = request.data.get("telefone")
+        nascimento = request.data.get("nascimento")
+        senha = request.data.get("senha")
+
+        print("--- DADOS DO FUNCIONÁRIO RECEBIDOS ---")
+        print(f"Nome: {nome}")
+        print(f"Sobrenome: {sobrenome}")
+        print(f"CPF: {cpf}")
+        print(f"Email: {email}")
+        print(f"Telefone: {telefone}")
+        print(f"Nascimento: {nascimento}")
+        print(f"Senha: {senha}")
+        print("------------------------------------")
+        
+        return Response(
+            {"message": "Funcionário recebido com sucesso!"},
+            status=status.HTTP_201_CREATED
+        )
