@@ -12,6 +12,14 @@ class ChatbotView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
+        
+        try:
+            formatted_data = json.dumps(request.data, indent=4, ensure_ascii=False)
+            print(formatted_data)
+        except Exception as e:
+            print(request.data)
+        
+
         if not gemini_service:
             return Response(
                 {"error": "O serviço de IA não está disponível devido a um erro de configuração."},
@@ -20,21 +28,30 @@ class ChatbotView(APIView):
 
         user_message = request.data.get('message')
         history = request.data.get('history', [])
-        resp_form = request.data.get('formu')
+        form_data = request.data.get('form_data') 
 
-        if not history and resp_form:
-            print("--- DADOS DO FORMULÁRIO RECEBIDOS (INÍCIO DA CONVERSA) ---")
-            print(resp_form)
-            print("-------------------------------------------------------------")
+        if not history and form_data:
+            print(json.dumps(form_data, indent=4, ensure_ascii=False))
             
-
         if not user_message:
             return Response(
                 {"error": "O campo 'message' é obrigatório e não foi fornecido."},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        system_prompt = "Seu objetivo é ser um assistente amigável e educado, seu objetivo é extrair todas as informações da empresa de quem está digitando, como quantidade de funcionários, porte de empresa, cargo de quem está digitando..."
+        system_prompt = f"""
+            Você é um consultor de gestão experiente e prestativo. Sua missão é ajudar o usuário a transformar os pontos fracos da empresa dele em oportunidades de crescimento.
+
+            Baseie a conversa neste diagnóstico inicial que você recebeu: {form_data}.
+
+            Siga estes passos na conversa:
+            1. Apresente-se de forma amigável e mencione que analisou o diagnóstico.
+            2. Escolha UM ponto fraco principal do diagnóstico para iniciar a conversa.
+            3. Faça perguntas abertas para entender a situação real por trás daquele ponto fraco. Tente aprofundar no problema antes de solucioná-lo. Por exemplo: "Notei que um dos desafios é a 'Liderança e Engajamento'. Poderia me contar um exemplo de como isso afeta a equipe no dia a dia?".
+            4. Com base nas respostas do usuário, ofereça soluções práticas e detalhadas.
+
+            REGRA MAIS IMPORTANTE: Nunca, em hipótese alguma, use asteriscos duplos (**) para formatar texto em negrito. Formate suas respostas usando parágrafos e listas simples quando necessário para garantir a clareza. Mantenha o texto limpo.
+            """
         
         try:
             chat_session = gemini_service.start_chat_session(system_prompt, history)
@@ -155,7 +172,6 @@ class DiagnosticAIView(APIView):
                     "recomendacao": ["Tente novamente mais tarde."]
                 }
 
-        print(f"DEBUG: JSON final enviado para o frontend: {final_diagnosis}")
         return Response(final_diagnosis, status=status.HTTP_200_OK)
     
     
