@@ -27,6 +27,18 @@ class UsuarioManager(BaseUserManager):
         return self.create_user(email, password, **extra_fields)
 
 
+class Empresas(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    nome = models.CharField(max_length=255, unique=True)
+    # Você pode adicionar outros campos aqui depois, como CNPJ, etc.
+
+    def __str__(self):
+        return self.nome
+
+    class Meta:
+        db_table = 'empresas'
+        verbose_name_plural = 'Empresas'
+
 class Usuario(AbstractBaseUser, PermissionsMixin):
     ROLE_ADMIN = 'admin'
     ROLE_RH = 'rh'
@@ -45,14 +57,12 @@ class Usuario(AbstractBaseUser, PermissionsMixin):
     is_staff = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     email = models.EmailField(unique=True) 
-    nome = models.TextField()
-    
+    nome = models.CharField(max_length=150) 
+    sobrenome = models.CharField(max_length=150, null=True, blank = True )
     cpf = models.CharField(unique=True, max_length=14, null=True, blank=True)
-    
-    # --- CORREÇÃO APLICADA AQUI ---
-    # Informa ao Django que o campo 'empresa' corresponde à coluna 'empresa_id' no banco de dados.
-    empresa = models.TextField(blank=True, null=True, db_column='empresa_id')
-    
+    telefone = models.CharField(max_length=15, null=True, blank=True)
+    data_nascimento = models.DateField(null=True, blank=True) 
+    empresa = models.ForeignKey(Empresas, on_delete=models.SET_NULL, null=True, blank=True)
     role = models.CharField(
         max_length=20,
         choices=ROLE_CHOICES,
