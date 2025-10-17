@@ -8,7 +8,8 @@ from .views import (
     PostDetailView, ComentarioListCreateView,
     EmpresaListCreateView, EmpresaDetailView,
     PlanListCreateView, PlanDetailView,
-    SubscriptionListCreateView, SubscriptionDetailView
+    SubscriptionListCreateView, SubscriptionDetailView,
+    UsuarioListView, CurrentSubscriptionView
 )
 
 urlpatterns = [
@@ -29,4 +30,7 @@ urlpatterns = [
 
     path('subscriptions', SubscriptionListCreateView.as_view(), name='subscription-list-create'),
     path('subscriptions/<uuid:pk>', SubscriptionDetailView.as_view(), name='subscription-detail'),
+
+    path('usuarios', UsuarioListView.as_view(), name='usuario-list'),
+    path('subscription/current', CurrentSubscriptionView.as_view(), name='current-subscription'),
 ]

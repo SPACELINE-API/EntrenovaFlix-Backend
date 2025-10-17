@@ -96,12 +96,27 @@ class UserSerializer(serializers.ModelSerializer):
         read_only_fields = ['id']
 
     def create(self, validated_data):
+        empresa = validated_data.get('empresa')
+
+        # Verificar limite de usuários se empresa tem assinatura ativa
+        if empresa:
+            try:
+                subscription = Subscription.objects.get(empresa=empresa, ativo=True)
+                if not subscription.pode_adicionar_usuario():
+                    raise serializers.ValidationError(
+                        f"Limite de usuários atingido para o plano {subscription.plan.nome}. "
+                        f"Máximo: {subscription.plan.limite_usuarios} usuários."
+                    )
+            except Subscription.DoesNotExist:
+                # Se não há assinatura ativa, permite criar (compatibilidade)
+                pass
+
         user = Usuario.objects.create_user(
             email=validated_data['email'],
             nome=validated_data['nome'],
             password=validated_data['password'],
             cpf=validated_data['cpf'],
-            empresa=validated_data.get('empresa'),
+            empresa=empresa,
             role=validated_data.get('role', Usuario.ROLE_CLIENTE) # Define a role padrão se não for enviada
         )
         return user

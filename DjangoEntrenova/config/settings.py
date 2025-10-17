@@ -79,14 +79,29 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+import os
+
+# Load environment variables from .env file
+def load_env():
+    env_path = BASE_DIR / '.env'
+    if env_path.exists():
+        with open(env_path) as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#'):
+                    key, value = line.split('=', 1)
+                    os.environ[key] = value
+
+load_env()
+
 DATABASES = {
   'default': {
     'ENGINE': 'django.db.backends.postgresql',
-    'NAME': 'postgres',
-    'USER': 'postgres',
-    'PASSWORD': 'SpacelineAPI**', 
-    'HOST': 'db.rgpulrrnyrnqbobrhwgr.supabase.co',
-    'PORT': '5432',
+    'NAME': os.getenv('DB_NAME', 'postgres'),
+    'USER': os.getenv('DB_USER', 'postgres'),
+    'PASSWORD': os.getenv('DB_PASSWORD', 'SpacelineAPI**'),
+    'HOST': os.getenv('DB_HOST', 'db.rgpulrrnyrnqbobrhwgr.supabase.co'),
+    'PORT': os.getenv('DB_PORT', '5432'),
   }
 }
 

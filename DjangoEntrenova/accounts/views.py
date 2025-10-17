@@ -75,3 +75,27 @@ class SubscriptionDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Subscription.objects.all()
     serializer_class = SubscriptionSerializer
     permission_classes = [IsAuthenticated]
+
+class UsuarioListView(generics.ListAPIView):
+    serializer_class = UserSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        # Filtrar usuários pela empresa do usuário logado
+        if self.request.user.empresa:
+            return Usuario.objects.filter(empresa=self.request.user.empresa)
+        return Usuario.objects.none()
+
+class CurrentSubscriptionView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if not request.user.empresa:
+            return Response({"error": "Usuário não pertence a nenhuma empresa"}, status=400)
+
+        try:
+            subscription = Subscription.objects.get(empresa=request.user.empresa, ativo=True)
+            serializer = SubscriptionSerializer(subscription)
+            return Response(serializer.data)
+        except Subscription.DoesNotExist:
+            return Response({"error": "Nenhuma assinatura ativa encontrada"}, status=404)

@@ -44,10 +44,13 @@ class Subscription(models.Model):
         return f"{self.empresa.nome} - {self.plan.nome}"
 
     def usuarios_ativos(self):
-        return self.empresa.usuario_set.filter(is_active=True).count()
+        return self.empresa.usuarios.filter(is_active=True).count()
 
     def pode_adicionar_usuario(self):
         return self.usuarios_ativos() < self.plan.limite_usuarios
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
 
     class Meta:
         db_table = 'subscriptions'
@@ -59,6 +62,17 @@ class UsuarioManager(BaseUserManager):
         email = self.normalize_email(email)
         user = self.model(email=email, **extra_fields)
         user.set_password(password)
+
+        # Verificar limite antes de salvar
+        if user.empresa:
+            try:
+                subscription = Subscription.objects.get(empresa=user.empresa, ativo=True)
+                usuarios_ativos = subscription.usuarios_ativos()
+                if usuarios_ativos + 1 > subscription.plan.limite_usuarios:
+                    raise ValueError(f"Limite de usuários atingido para o plano {subscription.plan.nome}. Máximo: {subscription.plan.limite_usuarios} usuários.")
+            except Subscription.DoesNotExist:
+                pass
+
         user.save(using=self._db)
         return user
 
@@ -66,12 +80,12 @@ class UsuarioManager(BaseUserManager):
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
         extra_fields.setdefault('is_active', True)
-        
+
         if extra_fields.get('is_staff') is not True:
             raise ValueError('Superuser must have is_staff=True.')
         if extra_fields.get('is_superuser') is not True:
             raise ValueError('Superuser must have is_superuser=True.')
-            
+
         return self.create_user(email, password, **extra_fields)
 
 
@@ -97,23 +111,54 @@ class Usuario(AbstractBaseUser, PermissionsMixin):
     
     cpf = models.CharField(unique=True, max_length=14, null=True, blank=True)
     
-    empresa = models.TextField(blank=True, null=True)
+    empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='usuarios'  # Boa prática adicionar related_name
+    )
     role = models.CharField(
         max_length=20,
         choices=ROLE_CHOICES,
         default=ROLE_CLIENTE
     )
-    
+
     objects = UsuarioManager()
 
-    USERNAME_FIELD = 'email' 
-    REQUIRED_FIELDS = ['nome'] 
+    USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = ['nome']
+
+    def save(self, *args, **kwargs):
+        # 1. A validação só roda na criação de um novo usuário (quando ele ainda não tem PK)
+        if self.pk is None and self.empresa:
+            try:
+                subscription = Subscription.objects.get(empresa=self.empresa, ativo=True)
+                plan = subscription.plan
+
+                # 2. Verifica se o plano realmente tem um limite
+                if plan.limite_usuarios > 0:
+                    # Usamos 'self.empresa.usuarios' graças ao related_name
+                    usuarios_ativos = self.empresa.usuarios.filter(is_active=True).count()
+
+                    # 3. Se o número de usuários ativos já atingiu o limite, levanta o erro
+                    if usuarios_ativos >= plan.limite_usuarios:
+                        raise ValueError(
+                            f"Limite de {plan.limite_usuarios} usuários atingido para o plano '{plan.nome}'."
+                        )
+
+            # 4. Trata o caso de uma empresa sem assinatura ativa (importante!)
+            except Subscription.DoesNotExist:
+                raise ValueError(f"Não é possível criar usuário. A empresa '{self.empresa.nome}' não possui uma assinatura ativa.")
+
+        # 5. Chama o método save() original para salvar o usuário no banco
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.email
 
     class Meta:
-        managed = True
+        managed = True  # Esta linha é opcional, pois True é o padrão
         db_table = 'usuarios'
 
 
