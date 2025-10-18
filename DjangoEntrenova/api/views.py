@@ -4,6 +4,7 @@ from rest_framework import status
 from rest_framework.permissions import AllowAny 
 from .ai_service import gemini_service, gemini_service_flash
 import json
+import re
 from rest_framework.permissions import IsAuthenticated 
 
 class ChatbotView(APIView):
@@ -127,7 +128,6 @@ class DiagnosticAIView(APIView):
             }
         }
     }
-
     def _call_gemini_api(self, system_prompt, user_message):
         try:
             chat_session = gemini_service_flash.start_chat_session(system_prompt)
@@ -264,8 +264,6 @@ class ProximosPassosView(APIView):
             "longo_prazo": {"foco": "", "acoes": []},
         }
         return Response(fallback, status=status.HTTP_200_OK)
-
-
 
 class funcionarios(APIView):
     permission_classes = [IsAuthenticated]
