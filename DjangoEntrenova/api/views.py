@@ -195,6 +195,78 @@ class DiagnosticAIView(APIView):
 
         return Response(final_diagnosis, status=status.HTTP_200_OK)
 
+class ProximosPassosView(APIView):
+    permission_classes = [AllowAny]
+
+    def _call_gemini_api(self, system_prompt, user_message):
+        try:
+            chat_session = gemini_service_flash.start_chat_session(system_prompt)
+            response = chat_session.send_message(user_message)
+            
+            match = re.search(r'\{[\s\S]*\}', response.text)
+            
+            if not match:
+                print("Erro: Nenhum JSON encontrado na resposta da IA. Resposta bruta:")
+                print(response.text)
+                return None
+
+            cleaned_text = match.group(0)
+            return json.loads(cleaned_text)
+        
+        except json.JSONDecodeError:
+            return None
+        except Exception as e:
+            print(f"Erro inesperado ao chamar a IA: {e}")
+            return None
+
+    def post(self, request):
+        if not gemini_service_flash:
+            return Response(
+                {"error": "O serviço de IA não está disponível"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+        pontos_a_melhorar = request.data.get('pontos_a_melhorar')
+        if not pontos_a_melhorar or not isinstance(pontos_a_melhorar, list) or len(pontos_a_melhorar) == 0:
+            return Response(
+                {"error": "Nenhum 'pontos_a_melhorar' foi fornecido."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        system_prompt_template = """Você é um especialista em desenvolvimento organizacional.
+        Analise a lista de pontos fracos, identifique os 3 mais críticos e crie um **plano de ação único e agregado** para resolvê-los.
+        O plano deve ser dividido em horizontes de tempo:
+        - curto_prazo (1-2 semanas)
+        - medio_prazo (2-4 semanas)
+        - longo_prazo (+6 semanas)
+
+        Para cada horizonte, defina um "foco" (a área principal de melhoria) e uma lista de "acoes".
+        Retorne **apenas JSON válido**, sem markdown ou explicações adicionais.
+
+        Exemplo de formato de resposta esperado:
+        {
+        "curto_prazo": {"foco": "Liderança e Engajamento", "acoes": ["Ação 1", "Ação 2", "Ação 3"]},
+        "medio_prazo": {"foco": "Estrutura & Processos", "acoes": ["Ação 1", "Ação 2", "Ação 3"]},
+        "longo_prazo": {"foco": "Transformação Estratégica", "acoes": ["Ação 1", "Ação 2", "Ação 3"]}
+        }
+        """
+        
+        formatted_pontos = "\n".join(f"- {p}" for p in pontos_a_melhorar)
+        user_message = f"Analise a seguinte lista de pontos a melhorar e crie o plano de ação agregado focado nos 3 mais críticos:\n\n{formatted_pontos}"
+        ai_result_json = self._call_gemini_api(system_prompt_template, user_message)
+        expected_keys = ["curto_prazo", "medio_prazo", "longo_prazo"]
+        if ai_result_json and isinstance(ai_result_json, dict) and all(k in ai_result_json for k in expected_keys):
+            return Response(ai_result_json, status=status.HTTP_200_OK)
+        
+        fallback = {
+            "curto_prazo": {"foco": "", "acoes": []},
+            "medio_ prazo": {"foco": "", "acoes": []},
+            "longo_prazo": {"foco": "", "acoes": []},
+        }
+        return Response(fallback, status=status.HTTP_200_OK)
+
+
+
 class funcionarios(APIView):
     permission_classes = [IsAuthenticated]
     def post(self, request):
