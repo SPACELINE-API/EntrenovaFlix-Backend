@@ -18,12 +18,12 @@ class ChatbotView(APIView):
 
         user_message = request.data.get('message')
         history = request.data.get('history', [])
-        form_data_str = request.data.get('formu', '{}') 
+        form_data_str = request.data.get('formu', '{}') # Renomeado para formu
 
         try:
              form_data = json.loads(form_data_str) if isinstance(form_data_str, str) else form_data_str
         except json.JSONDecodeError:
-             form_data = form_data_str 
+             form_data = form_data_str
 
         if not history and form_data and form_data != '{}':
             print("--- DADOS DO FORMULÁRIO RECEBIDOS (INÍCIO DA CONVERSA) ---")
@@ -39,40 +39,33 @@ class ChatbotView(APIView):
         system_prompt = f"""
             Você é a I.A. da Entrenova, uma consultora de negócios estratégica e proativa.
             Sua missão é diagnosticar e solucionar problemas empresariais de forma empática e prática, guiando o usuário passo a passo.
-
             O diagnóstico base é o seguinte: {json.dumps(form_data, ensure_ascii=False)}.
-
             Siga estes 4 passos na conversa:
             PASSO 1: APRESENTAÇÃO (início da conversa)
             - Cumprimente brevemente ("Olá! Sou a I.A. da Entrenova.").
             - Mencione que analisou o formulário (só na primeira vez).
             - Apresente o primeiro ponto fraco identificado e faça uma pergunta aberta sobre ele.
             Ex: "Percebi no diagnóstico que um desafio é a 'Comunicação Interna'.\\nComo isso tem se manifestado recentemente na sua equipe?"
-
             PASSO 2: INVESTIGAÇÃO
             - Reconheça a resposta e faça uma pergunta mais específica para aprofundar.
             - Seja concisa. Não repita saudações ou "analisei o formulário".
             Ex: "Entendo. E essa dificuldade parece estar mais nos canais utilizados ou na clareza das mensagens?"
-
             PASSO 3: SOLUÇÃO
             - Ao ter informações suficientes, responda com:
               1. Reconhecimento breve (1 frase).
               2. 2-3 soluções práticas listadas com hífens.
             Ex: "Compreendi a questão dos ruídos. Algumas ações podem ajudar:\\n- Definir um canal oficial para comunicados importantes;\\n- Fazer reuniões curtas de alinhamento no início do dia."
-
             PASSO 4: TRANSIÇÃO/ENCERRAMENTO
             - Após as soluções, pergunte como o usuário deseja prosseguir:
               1. Aprofundar neste ponto?
               2. Ir para o próximo ponto fraco?
               3. Encerrar por agora?
-            - **IMPORTANTE:** Se o usuário responder indicando que deseja encerrar (ex: "encerrar", "por agora chega", "obrigado, podemos parar", "satisfeito"), sua resposta JSON DEVE ter "isComplete": true e uma mensagem de despedida curta. Caso contrário, "isComplete" deve ser false.
+            - IMPORTANTE: Se o usuário responder indicando que deseja encerrar (ex: "encerrar", "por agora chega", "obrigado, podemos parar", "satisfeito"), sua resposta JSON DEVE ter "isComplete": true e uma mensagem de despedida curta. Caso contrário, "isComplete" deve ser false.
             - Se ele escolher continuar, volte ao PASSO 2 ou inicie um novo ciclo para outro ponto fraco, sem repetir saudações.
-
             REGRAS GERAIS:
             - Tom profissional, empático e natural.
             - Linguagem simples e direta.
             - Respostas curtas e objetivas.
-
             FORMATAÇÃO OBRIGATÓRIA DA RESPOSTA:
             - Sua resposta DEVE SER SEMPRE um objeto JSON válido com as chaves "reply" (string com o texto formatado com \\n) e "isComplete" (booleano).
             - Use "\\n" para quebras de linha. Listas com hífens. Sem negrito ou asteriscos (**).
@@ -81,18 +74,14 @@ class ChatbotView(APIView):
         try:
             chat_session = gemini_service.start_chat_session(system_prompt, history)
             response = chat_session.send_message(user_message)
-            print("----------------------------------------")
-            print("resposta da IA: " + response)
-            print("----------------------------------------")
 
             cleaned_text = response.text.strip().replace('```json', '').replace('```', '').strip()
 
             try:
                 ai_response = json.loads(cleaned_text)
                 if 'reply' not in ai_response or 'isComplete' not in ai_response:
-                    print(f"Alerta: IA não retornou JSON com 'reply' e 'isComplete'. Encapsulando. Resposta: '{cleaned_text}'")
+                    print(f"Alerta: JSON da IA não contém 'reply'/'isComplete'. Encapsulando. Resposta: '{cleaned_text}'")
                     ai_response = { "reply": cleaned_text, "isComplete": False }
-
             except (json.JSONDecodeError) as json_error:
                  print(f"Alerta: IA não retornou JSON válido. Erro: {json_error}. Resposta: '{cleaned_text}'")
                  ai_response = { "reply": cleaned_text, "isComplete": False }
@@ -100,7 +89,6 @@ class ChatbotView(APIView):
             return Response(ai_response, status=status.HTTP_200_OK)
 
         except Exception as e:
-            print(f"Erro na comunicação com a API do Gemini ou processamento: {e}")
             return Response(
                 {"error": "Ocorreu um erro ao se comunicar com o serviço de IA."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
