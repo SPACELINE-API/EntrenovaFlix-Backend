@@ -7,6 +7,7 @@ import json
 import re
 from rest_framework.permissions import IsAuthenticated 
 
+#chatbot
 class ChatbotView(APIView):
     permission_classes = [AllowAny]
 
