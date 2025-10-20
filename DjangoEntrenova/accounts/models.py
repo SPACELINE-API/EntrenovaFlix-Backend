@@ -49,9 +49,15 @@ class Usuario(AbstractBaseUser, PermissionsMixin):
     
     cpf = models.CharField(unique=True, max_length=14, null=True, blank=True)
     
-    # --- CORREÇÃO APLICADA AQUI ---
-    # Informa ao Django que o campo 'empresa' corresponde à coluna 'empresa_id' no banco de dados.
-    empresa = models.TextField(blank=True, null=True, db_column='empresa_id')
+
+    empresa = models.ForeignKey(
+        'PendenteAprovado',
+        on_delete=models.SET_NULL,    
+        db_column='empresa_id',    
+        null=True,
+        blank=True,
+        related_name='usuarios'
+    )
     
     role = models.CharField(
         max_length=20,
@@ -134,7 +140,7 @@ class Formulario1(models.Model):
         db_table = 'formulario1'
 
 class PendenteAprovado(models.Model):
-    cnpj_empresa = models.CharField(max_length=20, unique=True)
+    cnpj_empresa = models.CharField(max_length=20,unique=True, primary_key=True)
     plano = models.CharField(max_length=50)
     status_pagamento = models.CharField(
         max_length=20,

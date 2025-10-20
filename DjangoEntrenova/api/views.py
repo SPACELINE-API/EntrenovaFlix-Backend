@@ -5,28 +5,49 @@ from rest_framework.response import Response
 from rest_framework import status
 from accounts.models import PendenteAprovado
 from .supabase_client import supabase
+from .ai_service import gemini_service
+from rest_framework.permissions import IsAuthenticated, AllowAny
+import json
 
 class AprovarPagamentoView (APIView):
-    def post(self, request, cnpj_empresa):
+    permission_classes = [AllowAny]
+    def post(self, request, cnpj):
         try:
-            registro = PendenteAprovado.objects.get(cnpj_empresa=cnpj_empresa)
-            registro.aprovar()
-            supabase.table("pagamentos").update({"status": "aprovado"}).eq("cnpj_empresa", cnpj_empresa).execute()
+            registro = PendenteAprovado.objects.get(cnpj_empresa=cnpj)
+            registro.aprovar_pagamento()
+            supabase.table("pagamentos").update({"status": "aprovado"}).eq("cnpj_empresa", cnpj).execute()
             return Response({"message": "Pagamento aprovado"}, status=status.HTTP_200_OK)
         except PendenteAprovado.DoesNotExist:
             return Response ({"error": "Empresa não encontrada"}, status=status.HTTP_404_NOT_FOUND)
-from rest_framework.permissions import AllowAny 
-from .ai_service import gemini_service
-import json
-from rest_framework.permissions import IsAuthenticated 
+        except Exception as e:
+             return Response ({"error": f"Erro ao aprovar pagamento: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
 
 class ChatbotView(APIView):
-    permission_classes = [AllowAny] #Necessário mudança, qualquer um tem acesso
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
+        user = request.user
+
+        registro_pagamento = user.empresa
+
+        if not registro_pagamento:
+            return Response(
+                {"error": "Usuário não está vinculado a uma empresa ou registro de pagamento válido. Acesso negado."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        status_pagamento = registro_pagamento.status_pagamento
+
+        if status_pagamento != "aprovado":
+            return Response(
+                {"error": "Pagamento pendente. O acesso ao diagnóstico aprofundado está bloqueado"},
+                status=status.HTTP_402_PAYMENT_REQUIRED
+            ) 
+        
         if not gemini_service:
             return Response(
-                {"error": "O serviço de IA não está disponível devido a um erro de configuração."},
+                {"error": "O serviço de IA não está disponível devido a um erro de configuração"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
