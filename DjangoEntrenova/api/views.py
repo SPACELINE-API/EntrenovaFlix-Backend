@@ -20,7 +20,7 @@ class ChatbotView(APIView):
 
         user_message = request.data.get('message')
         history = request.data.get('history', [])
-        form_data_str = request.data.get('formu', '{}') # Renomeado para formu
+        form_data_str = request.data.get('formu', '{}') 
 
         try:
              form_data = json.loads(form_data_str) if isinstance(form_data_str, str) else form_data_str
@@ -43,12 +43,13 @@ class ChatbotView(APIView):
             Sua missão é diagnosticar e solucionar problemas empresariais de forma empática e prática, guiando o usuário passo a passo.
             O diagnóstico base é o seguinte: {json.dumps(form_data, ensure_ascii=False)}.
             Siga estes 4 passos na conversa:
-            PASSO 1: APRESENTAÇÃO (início da conversa)
-            - Cumprimente brevemente ("Olá! Sou a Assistente Virtual da Entrenova.").
+            PASSO 1: INICIO
+            - NÃO cumprimente 
             - Mencione que analisou o formulário (só na primeira vez).
             - Apresente o primeiro ponto fraco identificado e faça uma pergunta aberta sobre ele.("Qual o maior desafio encontrado na sua empresa atualmente?")
             PASSO 2: INVESTIGAÇÃO
             - Após analisar o formulário inicial e identificar quais das quatro dimensões (Pessoas & Cultura, Estrutura & Operações, etc.) necessitam de melhora.
+            - Caso o usuário pergunte sobre geração das trilhas, diga "A geração das trilhas será após a investigação sobre sua empresa" e conduza as perguntas da entrevista.
             - Conduza uma entrevista de aprofundamento focada apenas nas dimensões que foram diagnosticadas como pontos a melhorar. 
             - Seja concisa. Não repita saudações ou "analisei o formulário".
               Ex: "Entendo. E essa dificuldade parece estar mais nos canais utilizados ou na clareza das mensagens?"
