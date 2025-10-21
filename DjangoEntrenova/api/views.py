@@ -303,26 +303,59 @@ class ProximosPassosView(APIView):
 
 class funcionarios(APIView):
     permission_classes = [IsAuthenticated]
+    
     def post(self, request):
         nome = request.data.get("nome")
-        sobrenome = request.data.get("sobrenome")
         cpf = request.data.get("cpf")
         email = request.data.get("email")
         telefone = request.data.get("telefone")
         nascimento = request.data.get("nascimento")
         senha = request.data.get("senha")
-
-        print("--- DADOS DO FUNCIONÁRIO RECEBIDOS ---")
-        print(f"Nome: {nome}")
-        print(f"Sobrenome: {sobrenome}")
-        print(f"CPF: {cpf}")
-        print(f"Email: {email}")
-        print(f"Telefone: {telefone}")
-        print(f"Nascimento: {nascimento}")
-        print(f"Senha: {senha}")
-        print("------------------------------------")
         
-        return Response(
-            {"message": "Funcionário recebido com sucesso!"},
-            status=status.HTTP_201_CREATED
-        )
+        User = get_user_model()
+        
+        try:
+            print("--- TENTANDO CRIAR FUNCIONÁRIO ---")
+            print(f"Email: {email}")
+            
+            user = User.objects.create_user(
+                username=email,
+                email=email,
+                password=senha,
+                first_name=nome,
+            )
+
+            print(f"--- FUNCIONÁRIO CRIADO COM SUCESSO ---")
+            print(f"Usuário: {user.username}")
+            print("------------------------------------")
+            
+            return Response(
+                {"message": "Funcionário cadastrado com sucesso!"},
+                status=status.HTTP_201_CREATED
+            )
+        
+        except IntegrityError as e:
+            if 'usuarios_email_key' in str(e) or 'unique constraint' in str(e).lower():
+                print(f"--- ERRO: E-MAIL JÁ CADASTRADO ---")
+                print(f"Email: {email}")
+                print("---------------------------------")
+                return Response(
+                    {"message": "Este e-mail já está cadastrado."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            else:
+                print(f"--- ERRO DE INTEGRIDADE NÃO TRATADO ---")
+                print(str(e))
+                print("---------------------------------")
+                return Response(
+                    {"message": "Ocorreu um erro interno no servidor."},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+        except Exception as e:
+            print(f"--- ERRO GERAL AO CRIAR USUÁRIO ---")
+            print(str(e))
+            print("---------------------------------")
+            return Response(
+                {"message": "Ocorreu um erro ao criar o funcionário."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

@@ -1,4 +1,3 @@
-# accounts/serializers.py
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework import serializers
 from .models import Usuario, Posts, Comentarios, Empresas
@@ -44,23 +43,33 @@ class PostSerializer(serializers.ModelSerializer):
 class PostListCreateView(ListCreateAPIView):
     queryset = Posts.objects.all()
     serializer_class = PostSerializer
-    permission_classes = [IsAuthenticated]  # garante que apenas usuários logados acessem
+    permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
         print("Usuário logado:", self.request.user)
         serializer.save(usuario=self.request.user)
 
 class UserSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField(
+        required=True,
+        validators=[UniqueValidator(
+            queryset=Usuario.objects.all(),
+            message="Este e-mail já está cadastrado."
+        )]
+    )
+
     cpf = serializers.CharField(
         required=True,
-        validators=[UniqueValidator(queryset=Usuario.objects.all())]
+        validators=[UniqueValidator(
+            queryset=Usuario.objects.all(),
+            message="Este CPF já está cadastrado."
+        )]
     )
 
     empresa = serializers.CharField(source='empresa.nome', required=False, allow_blank=True)
     
     class Meta:
         model = Usuario
-        # ✨ ADICIONADO: 'telefone' e 'data_nascimento' na lista de campos
         fields = ('id', 'email', 'password', 'nome', 'sobrenome', 'cpf', 'telefone', 'data_nascimento', 'empresa', 'role')
         extra_kwargs = {
             'password': {'write_only': True},
@@ -84,14 +93,12 @@ class UserSerializer(serializers.ModelSerializer):
             sobrenome=validated_data['sobrenome'],
             password=validated_data['password'],
             cpf=validated_data['cpf'],
-            telefone=validated_data.get('telefone'), # Use .get() para campos que podem não vir
+            telefone=validated_data.get('telefone'),
             data_nascimento=validated_data.get('data_nascimento'),
             empresa=empresa_obj,
             role=validated_data.get('role', Usuario.ROLE_CLIENTE)
         )
         return user
-
-# ... seu MyTokenObtainPairSerializer continua igual ...
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod
