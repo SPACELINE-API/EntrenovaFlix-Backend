@@ -326,3 +326,11 @@ class funcionarios(APIView):
             {"message": "Funcionário recebido com sucesso!"},
             status=status.HTTP_201_CREATED
         )
+
+class diagnosticoRH(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        respostaIA = request.data.get('pontos_a_melhorar')
+        print(respostaIA)
+        return Response(status=status.HTTP_200_OK)
