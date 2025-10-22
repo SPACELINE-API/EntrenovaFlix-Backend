@@ -1,7 +1,6 @@
-# accounts/serializers.py
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework import serializers
-from .models import Usuario, Posts, Comentarios
+from .models import Usuario, Posts, Comentarios, Empresas
 from rest_framework.validators import UniqueValidator
 from rest_framework.generics import ListCreateAPIView
 from django.utils import timezone
@@ -44,42 +43,62 @@ class PostSerializer(serializers.ModelSerializer):
 class PostListCreateView(ListCreateAPIView):
     queryset = Posts.objects.all()
     serializer_class = PostSerializer
-    permission_classes = [IsAuthenticated]  # garante que apenas usuários logados acessem
+    permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
         print("Usuário logado:", self.request.user)
         serializer.save(usuario=self.request.user)
 
 class UserSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField(
+        required=True,
+        validators=[UniqueValidator(
+            queryset=Usuario.objects.all(),
+            message="Este e-mail já está cadastrado."
+        )]
+    )
+
     cpf = serializers.CharField(
         required=True,
-        validators=[UniqueValidator(queryset=Usuario.objects.all())]
+        validators=[UniqueValidator(
+            queryset=Usuario.objects.all(),
+            message="Este CPF já está cadastrado."
+        )]
     )
+
+    empresa = serializers.CharField(source='empresa.nome', required=False, allow_blank=True)
     
     class Meta:
         model = Usuario
-        # Campos que o frontend vai enviar para o registro
-        fields = ('id', 'email', 'password', 'nome', 'cpf', 'empresa', 'role')
+        fields = ('id', 'email', 'password', 'nome', 'sobrenome', 'cpf', 'telefone', 'data_nascimento', 'empresa', 'role')
         extra_kwargs = {
             'password': {'write_only': True},
-            'role': {'required': False}, # Tornamos a role opcional no registro
+            'role': {'required': False}, 
         }
         read_only_fields = ['id']
 
 
 
     def create(self, validated_data):
+
+        empresa_data = validated_data.pop('empresa', None)
+        empresa_obj = None
+
+        if empresa_data and empresa_data.get('nome'):
+            empresa_nome = empresa_data.get('nome')
+            empresa_obj, created = Empresas.objects.get_or_create(nome=empresa_nome)
         user = Usuario.objects.create_user(
             email=validated_data['email'],
             nome=validated_data['nome'],
+            sobrenome=validated_data['sobrenome'],
             password=validated_data['password'],
             cpf=validated_data['cpf'],
-            empresa=validated_data.get('empresa', ''),
-            role=validated_data.get('role', Usuario.ROLE_CLIENTE) # Define a role padrão se não for enviada
+            telefone=validated_data.get('telefone'),
+            data_nascimento=validated_data.get('data_nascimento'),
+            empresa=empresa_obj,
+            role=validated_data.get('role', Usuario.ROLE_CLIENTE)
         )
         return user
-
-# ... seu MyTokenObtainPairSerializer continua igual ...
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod
