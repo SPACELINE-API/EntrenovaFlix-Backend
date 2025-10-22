@@ -201,16 +201,29 @@ class DiagnosticAIView(APIView):
         final_diagnosis = {}
         
         system_prompt_template = """
-            Você é um especialista em desenvolvimento organizacional. Sua tarefa é analisar os resultados de uma ÚNICA dimensão de um diagnóstico empresarial.
-            Com base nos dados a seguir para a dimensão '{dimension_title}', gere um relatório em formato JSON com "fortes", "fracos" e "recomendacao".
-            Para "fortes" e "fracos", não retorne apenas o nome do tópico. Em vez disso, crie uma frase descritiva que explique o significado do resultado.
-            Exemplo: se o tópico 'Comunicação e Alinhamento' tem um resultado 'Otimizado', um bom ponto forte seria: "Comunicação e Alinhamento (Otimizado): A empresa demonstra uma comunicação clara e eficaz, mantendo as equipes bem alinhadas com os objetivos estratégicos."
-            - Para "fortes", identifique os tópicos com os melhores resultados (estágios 'Estratégico' ou 'Otimizado') e descreva-os como no exemplo.
-            - Para "fracos", identifique os tópicos com os piores resultados (estágios 'Inicial' ou 'Reativo') e descreva-os de forma semelhante.
-            - Para "recomendacao", forneça 2 a 3 sugestões práticas e acionáveis focadas nos pontos fracos.
+            Você é um especialista em desenvolvimento organizacional. Sua tarefa é analisar os resultados de uma ÚNICA dimensão de um diagnóstico empresarial: '{dimension_title}'.
+            
+            Com base nos dados fornecidos, gere um relatório em formato JSON com 6 chaves: "fortes", "fracos", "recomendacao", "score", "soft_skills_sugeridas", e "tags_de_interesse".
+
+            1.  Para "fortes": Identifique os tópicos com os melhores resultados (estágios 'Estratégico' ou 'Otimizado') e crie uma frase descritiva para cada.
+                Exemplo: "Comunicação e Alinhamento (Otimizado): A empresa demonstra uma comunicação clara e eficaz."
+            2.  Para "fracos": Identifique os tópicos com os piores resultados (estágios 'Inicial' ou 'Reativo') e descreva-os de forma semelhante.
+            3.  Para "recomendacao": Forneça 2 a 3 sugestões práticas e acionáveis focadas nos pontos fracos. Esta é a recomendação principal para esta dimensão.
+            4.  Para "score": Gere um número inteiro de 0 a 100 que represente a maturidade desta dimensão. (100 = Otimizado, 0 = Reativo).
+            5.  Para "soft_skills_sugeridas": Com base nos pontos fracos, sugira de 3 a 5 soft skills que deveriam ser desenvolvidas. (Ex: "Comunicação Clara", "Gestão de Tempo").
+            6.  Para "tags_de_interesse": Com base no contexto geral da dimensão, sugira 3 a 4 tags de interesse ou conceitos relacionados. (Ex: "Cultura de Feedback", "Metodologias Ágeis", "OKRs").
+
             Formate sua resposta EXCLUSIVAMENTE como um objeto JSON com a estrutura:
-            {{ "summary": {{ "fortes": [], "fracos": [], "recomendacao": [] }} }}
+            {{ "summary": {{ 
+                "fortes": [], 
+                "fracos": [], 
+                "recomendacao": [], 
+                "score": <numero_de_0_a_100>,
+                "soft_skills_sugeridas": [],
+                "tags_de_interesse": []
+            }} }}
         """
+        
 
         for dimension_key in selected_dimensions:
             if dimension_key not in self.DIMENSION_MAPPING:
@@ -238,7 +251,10 @@ class DiagnosticAIView(APIView):
                 final_diagnosis[dimension_key] = {
                     "fortes": ["Erro ao analisar esta dimensão."],
                     "fracos": ["Não foi possível gerar pontos a melhorar."],
-                    "recomendacao": ["Tente novamente mais tarde."]
+                    "recomendacao": ["Tente novamente mais tarde."],
+                    "score": 0,
+                    "soft_skills_sugeridas": ["N/A"],
+                    "tags_de_interesse": ["N/A"]
                 }
 
         return Response(final_diagnosis, status=status.HTTP_200_OK)
@@ -393,7 +409,6 @@ class LeadScoreView(APIView):
             return Response({"error": "Nenhum dado fornecido."}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            # Mapeia os dados do formulário (Etapa 1 e 2)
             profile = {
                 "colaboradores": data.get("numeroColaboradores"),
                 "porte": data.get("porteEmpresa"),
@@ -403,8 +418,6 @@ class LeadScoreView(APIView):
                 "projetosAnteriores": data.get("implementouProjetosInovadores"),
                 "urgencia": data.get("tempoInicio"),
             }
-
-            # Calcula a média de importância (Etapa 2)
             media_importancia = (
                 float(data.get("importanciaDesenvolvimento", '0') or '0') +
                 float(data.get("importanciaSoftSkills", '0') or '0') +

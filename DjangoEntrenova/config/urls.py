@@ -2,7 +2,7 @@
 from django.contrib import admin
 from django.urls import path, include
 from django.urls import path
-from api.views import ChatbotView, funcionarios
+from api.views import ChatbotView, funcionarios, LeadScoreView
 from api.views import DiagnosticAIView
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
@@ -19,6 +19,7 @@ urlpatterns = [
     path('api/pagamento/',include('api.urls')),
     path('api/chatbot/', ChatbotView.as_view(), name='chatbot'),
     path('api/diagnostico/avaliar', DiagnosticAIView.as_view(), name='avaliar-diagnostico'),
+    path('api/lead-score/', LeadScoreView.as_view(), name='lead_score'),
     path('api/proximos-passos/', ProximosPassosView.as_view(), name='proximos_passos'),
     path('api/accounts/funcionario', funcionarios.as_view(), name='funcionarios')
 ]
