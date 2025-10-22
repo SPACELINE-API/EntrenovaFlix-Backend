@@ -25,19 +25,53 @@ class UsuarioManager(BaseUserManager):
             raise ValueError('Superuser must have is_superuser=True.')
             
         return self.create_user(email, password, **extra_fields)
-
-
-class Empresas(models.Model):
+    
+class Plans(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    nome = models.CharField(max_length=255, unique=True)
-    # Você pode adicionar outros campos aqui depois, como CNPJ, etc.
+    nome = models.CharField(max_length=255)
+    limite_usuarios = models.IntegerField()
+    preco = models.DecimalField(max_digits=10, decimal_places=2) 
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return self.nome
+    
+    class Meta:
+        db_table = 'plans'
+        verbose_name_plural = "Planos"
+
+
+class Empresa(models.Model):
+
+    id = models.UUIDField(default=uuid.uuid4, editable=False)
+    nome = models.CharField(max_length=255)
+    cnpj = models.CharField(max_length=14,  primary_key=True, unique=True)
+    plano = models.ForeignKey(
+        'Plans',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='empresas'
+    )
+    status_pagamento = models.CharField(
+        max_length=20,
+        choices=[('pendente', 'Pendente'), ('aprovado', 'Aprovado')],
+        default='pendente'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+
+        return self.nome
 
     class Meta:
+
         db_table = 'empresas'
-        verbose_name_plural = 'Empresas'
+        verbose_name_plural = "Empresas"
+
+    def aprovar_pagamento(self):
+        self.status_pagamento = 'aprovado'
+        self.save()
 
 class Usuario(AbstractBaseUser, PermissionsMixin):
     ROLE_ADMIN = 'admin'
@@ -62,7 +96,17 @@ class Usuario(AbstractBaseUser, PermissionsMixin):
     cpf = models.CharField(unique=True, max_length=14, null=True, blank=True)
     telefone = models.CharField(max_length=15, null=True, blank=True)
     data_nascimento = models.DateField(null=True, blank=True) 
-    empresa = models.ForeignKey(Empresas, on_delete=models.SET_NULL, null=True, blank=True)
+    empresa = models.ForeignKey(
+        'Empresa', 
+        on_delete=models.SET_NULL,    
+        to_field='cnpj', 
+        db_column='empresa_cnpj',       
+        null=True,
+        blank=True,
+        related_name='usuarios'
+    )
+
+    
     role = models.CharField(
         max_length=20,
         choices=ROLE_CHOICES,

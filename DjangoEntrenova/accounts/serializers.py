@@ -1,7 +1,7 @@
 # accounts/serializers.py
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework import serializers
-from .models import Usuario, Posts, Comentarios, Empresas
+from .models import Usuario, Posts, Comentarios, Empresa
 from rest_framework.validators import UniqueValidator
 from rest_framework.generics import ListCreateAPIView
 from django.utils import timezone
@@ -76,7 +76,7 @@ class UserSerializer(serializers.ModelSerializer):
 
         if empresa_data and empresa_data.get('nome'):
             empresa_nome = empresa_data.get('nome')
-            empresa_obj, created = Empresas.objects.get_or_create(nome=empresa_nome)
+            empresa_obj, created = Empresa.objects.get_or_create(nome=empresa_nome)
         user = Usuario.objects.create_user(
             email=validated_data['email'],
             nome=validated_data['nome'],
@@ -97,5 +97,7 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
 
         token['nome'] = user.nome
         token['email'] = user.email
+        token['sobrenome'] = user.sobrenome
+        token['role'] = user.role
 
         return token

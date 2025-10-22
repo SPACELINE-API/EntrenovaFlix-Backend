@@ -1,6 +1,7 @@
 # accounts/urls.py
 
 from django.urls import path
+from .serializers import MyTokenObtainPairSerializer
 from .views import RegisterView, MeuViewSet
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from .views import (
@@ -10,7 +11,7 @@ from .views import (
 
 urlpatterns = [
     path('register', RegisterView.as_view(), name='register'),
-    path('login', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('login', TokenObtainPairView.as_view(serializer_class=MyTokenObtainPairSerializer), name='token_obtain_pair'),
     path('login/refresh', TokenRefreshView.as_view(), name='token_refresh'),
     path('meu-endpoint', MeuViewSet.as_view(), name='meu_endpoint'),  
 

@@ -24,8 +24,6 @@ class PostListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
-        # Ele pega o usuário da requisição (que foi autenticado pelo token JWT)
-        # e o passa para o serializer antes de salvar.
         serializer.save(usuario=self.request.user)
 
 class PostDetailView(generics.RetrieveAPIView):
