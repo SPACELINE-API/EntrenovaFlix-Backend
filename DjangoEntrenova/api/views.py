@@ -34,6 +34,7 @@ class ChatbotView(APIView):
         user_message = request.data.get('message')
         history = request.data.get('history', [])
         form_data_str = request.data.get('formu', '{}') 
+        form_data_str = request.data.get('formu', '{}') 
 
         try:
              form_data = json.loads(form_data_str) if isinstance(form_data_str, str) else form_data_str
