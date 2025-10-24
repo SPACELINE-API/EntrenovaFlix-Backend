@@ -59,6 +59,16 @@ class GerarPDFView(APIView):
         diagnostic_result = request.data.get('diagnosticResult', {})
         form_data = request.data.get('formData', {})
 
+        TOPICO_TITULOS = {
+            "pessoasCultura": "Pessoas & Cultura",
+            "estruturaOperacoes": "Estrutura & Operações",
+            "mercadoClientes": "Mercado & Clientes",
+            "direcaoFuturo": "Direção & Futuro",
+        }
+
+        for key, cat in diagnostic_result.items():
+            cat["titulo"] = TOPICO_TITULOS[key]
+
         context = {
             "diagnosticResult": diagnostic_result,
             "formData": form_data,
