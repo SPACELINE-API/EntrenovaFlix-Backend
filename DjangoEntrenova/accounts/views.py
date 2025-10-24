@@ -6,6 +6,10 @@ from rest_framework.response import Response
 from .models import Posts, Comentarios, Usuario
 from .serializers import PostSerializer, ComentarioSerializer, UserSerializer
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from django.http import HttpResponse
+from django.template.loader import render_to_string
+from xhtml2pdf import pisa
+
 
 class RegisterView(generics.CreateAPIView):
     queryset = Usuario.objects.all()
@@ -45,3 +49,29 @@ class ComentarioListCreateView(generics.ListCreateAPIView):
         post_id = self.kwargs.get('post_id')
         post = Posts.objects.get(id=post_id)
         serializer.save(usuario=self.request.user, post=post)
+
+class GerarPDFView(APIView):
+
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+
+        diagnostic_result = request.data.get('diagnosticResult', {})
+        form_data = request.data.get('formData', {})
+
+        context = {
+            "diagnosticResult": diagnostic_result,
+            "formData": form_data,
+        }
+
+        html = render_to_string('diagnostico_template.html', context)
+
+        response = HttpResponse(content_type='application/pdf')
+        response['Content-Disposition'] = 'attachment; filename="Diagnóstico Aprofundado.pdf"'
+
+        pisa_status = pisa.CreatePDF(html, dest=response)
+
+        if pisa_status.err:
+            return HttpResponse("Erro ao gerar o PDF")
+        
+        return response

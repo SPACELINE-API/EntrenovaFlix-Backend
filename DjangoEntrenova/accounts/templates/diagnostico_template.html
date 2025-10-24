@@ -1,0 +1,41 @@
+<h1>Diagnóstico Organizacional</h1>
+
+{% for key, category in diagnosticResult.items %}
+  <h2>{{ category.title }}</h2>
+  <h3><strong>Pontos fortes:</strong></h3>
+  <ul>
+    {% for item in category.fortes %}
+      <li>{{ item }}</li>
+    {% endfor %}
+  </ul>
+
+  <h3><strong>Pontos a melhorar:</strong></h3>
+  <ul>
+    {% for item in category.fracos %}
+      <li>{{ item }}</li>
+    {% endfor %}
+  </ul>
+
+  {% if category.soft_skills_sugeridas %}
+    <h3><strong>Soft Skills sugeridas:</strong></h3>
+    <ul>
+      {% for skill in category.soft_skills_sugeridas %}
+        <li>{{ skill }}</li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+
+  {% if category.tags_de_interesse %}
+    <h3><strong>Tags de interesse:</strong></h3>
+    <ul>
+      {% for tag in category.tags_de_interesse %}
+        <li>{{ tag }}</li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+{% endfor %}
+
+<h1>Trilha sugerida</h1>
+<h3>Como ampliar as vendas online?</h3>
+<p>Com base nas suas respostas, nosso sistema fez uma análise e concluiu que estes são os melhores conteúdos para você!</p>
+<p>A trilha é composta por 7 materiais e tem como objetivo auxiliar empresas que apresentem dificuldades em vender em ambientes virtuais. Ideal para a sua empresa!</p>

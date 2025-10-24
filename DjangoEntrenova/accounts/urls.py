@@ -5,7 +5,7 @@ from .views import RegisterView, MeuViewSet
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from .views import (
     RegisterView, PostListCreateView, 
-    PostDetailView, ComentarioListCreateView
+    PostDetailView, ComentarioListCreateView, GerarPDFView
 )
 
 urlpatterns = [
@@ -17,4 +17,5 @@ urlpatterns = [
     path('posts', PostListCreateView.as_view(), name='post-list-create'),
     path('posts/<uuid:pk>', PostDetailView.as_view(), name='post-detail'),
     path('posts/<uuid:post_id>/comentarios', ComentarioListCreateView.as_view(), name='comentario-list-create'),
+    path('gerar-pdf/', GerarPDFView.as_view(), name='gerar_pdf')
 ]
