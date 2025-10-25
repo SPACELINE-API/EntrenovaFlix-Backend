@@ -5,7 +5,7 @@ from .serializers import MyTokenObtainPairSerializer
 from .views import RegisterView, MeuViewSet
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from .views import (
-    RegisterView, PostListCreateView, PostDetailView, ComentarioListCreateView, FuncionariosView, EmpresaRegistrationView, PrimeiroLoginView)
+    RegisterView, PostListCreateView, PostDetailView, ComentarioListCreateView, FuncionariosView, EmpresaRegistrationView, PrimeiroLoginView, GerarPDFView)
 
 urlpatterns = [
     path('funcionarios', FuncionariosView.as_view(), name='funcionarios'),
@@ -19,4 +19,5 @@ urlpatterns = [
     path('posts', PostListCreateView.as_view(), name='post-list-create'),
     path('posts/<uuid:pk>', PostDetailView.as_view(), name='post-detail'),
     path('posts/<uuid:post_id>/comentarios', ComentarioListCreateView.as_view(), name='comentario-list-create'),
+    path('gerar-pdf', GerarPDFView.as_view(), name='gerar_pdf')
 ]

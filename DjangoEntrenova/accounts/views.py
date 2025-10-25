@@ -9,8 +9,9 @@ import re
 
 from .models import Posts, Comentarios, Usuario, Empresa, Plans
 from .serializers import PostSerializer, ComentarioSerializer, UserSerializer, MyTokenObtainPairSerializer
-
-# --- Authentication Views ---
+from django.http import HttpResponse
+from django.template.loader import render_to_string
+from xhtml2pdf import pisa
 
 class RegisterView(generics.CreateAPIView):
     queryset = Usuario.objects.all()
@@ -29,16 +30,12 @@ class PrimeiroLoginView(APIView):
 class MyTokenObtainPairView(TokenObtainPairView):
     serializer_class = MyTokenObtainPairSerializer
 
-# --- Test View ---
-
 class MeuViewSet(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         return Response({"mensagem": f"Olá {request.user.email}"})
-
-# --- Forum Views ---
 
 class PostListCreateView(generics.ListCreateAPIView):
     queryset = Posts.objects.all().order_by('-created_at')
@@ -69,8 +66,6 @@ class ComentarioListCreateView(generics.ListCreateAPIView):
         except Posts.DoesNotExist:
             pass
 
-# --- Empresa Registration ---
-
 class EmpresaRegistrationView(APIView):
     permission_classes = [AllowAny]
 
@@ -82,8 +77,6 @@ class EmpresaRegistrationView(APIView):
 
         if not dados_cadastro:
             return Response({"error": "Objeto 'cadastro' não encontrado no payload."}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Ajuste dos nomes conforme frontend
         dados_solicitante = dados_cadastro.get('dadosSolicitante', {})
         dados_empresa = dados_cadastro.get('dadosEmpresa', {})
         dados_senha_obj = dados_cadastro.get('dadosSenha', {})
@@ -110,15 +103,12 @@ class EmpresaRegistrationView(APIView):
             return Response({"error": f"Plano '{plano_nome}' não encontrado."}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            # Cria a empresa
             empresa_obj = Empresa.objects.create(
                 cnpj=cnpj,
                 nome=dados_empresa.get("razaoSocial"),
                 plano=plano_obj,
                 status_pagamento=status_pagamento
             )
-
-            # Cria o usuário RH
             usuario_rh = Usuario.objects.create_user(
                 email=dados_solicitante.get("emailCorporativo"),
                 password=senha,
@@ -147,10 +137,7 @@ class EmpresaRegistrationView(APIView):
             "empresa": empresa_obj.nome,
             "usuario_email": usuario_rh.email
         }, status=status.HTTP_201_CREATED)
-
-
-# --- Funcionarios CRUD ---
-
+    
 class FuncionariosView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
@@ -254,3 +241,36 @@ class FuncionariosView(APIView):
             return Response({"error": "Funcionário não encontrado nesta empresa."}, status=status.HTTP_404_NOT_FOUND)
         except Exception:
             return Response({"error": "Erro interno ao excluir funcionário."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+class GerarPDFView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        diagnostic_result = request.data.get('diagnosticResult', {})
+        form_data = request.data.get('formData', {})
+
+        TOPICO_TITULOS = {
+            "pessoasCultura": "Pessoas & Cultura",
+            "estruturaOperacoes": "Estrutura & Operações",
+            "mercadoClientes": "Mercado & Clientes",
+            "direcaoFuturo": "Direção & Futuro",
+        }
+
+        for key, cat in diagnostic_result.items():
+            cat["titulo"] = TOPICO_TITULOS.get(key, key)
+
+        context = {
+            "diagnosticResult": diagnostic_result,
+            "formData": form_data,
+        }
+
+        html = render_to_string('diagnostico_template.html', context)
+        response = HttpResponse(content_type='application/pdf')
+        response['Content-Disposition'] = 'attachment; filename="Diagnóstico Aprofundado.pdf"'
+
+        pisa_status = pisa.CreatePDF(html, dest=response)
+
+        if pisa_status.err:
+            return HttpResponse("Erro ao gerar o PDF")
+        
+        return response
