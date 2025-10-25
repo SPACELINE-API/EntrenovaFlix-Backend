@@ -330,67 +330,6 @@ class ProximosPassosView(APIView):
             "longo_prazo": {"foco": "", "acoes": []},
         }
         return Response(fallback, status=status.HTTP_200_OK)
-
-class funcionarios(APIView):
-    permission_classes = [IsAuthenticated]
-    def post(self, request):
-        user = request.user
-        empresa = user.empresa
-
-        if not empresa:
-             return Response(
-                {"error": "Usuário não está vinculado a uma empresa ou plano."},
-                status=status.HTTP_403_FORBIDDEN
-            )
-            
-        try:
-            plano = empresa.plano
-            
-            if not plano or not plano.limite_usuarios:
-                 return Response(
-                    {"error": "Plano não encontrado ou limite não configurado."},
-                    status=status.HTTP_403_FORBIDDEN
-                )
-
-            limite_usuarios = plano.limite_usuarios
-
-            usuarios_atuais = Usuario.objects.filter(empresa=empresa).count()
-
-            if usuarios_atuais >= limite_usuarios:
-                return Response(
-                    {"error": f"Limite de usuários atingido ({usuarios_atuais}/{limite_usuarios}). Faça um upgrade do plano."},
-                    status=status.HTTP_403_FORBIDDEN
-                )
-            
-            nome = request.data.get("nome")
-            sobrenome = request.data.get("sobrenome")
-            cpf = request.data.get("cpf")
-            email = request.data.get("email")
-            telefone = request.data.get("telefone")
-            nascimento = request.data.get("nascimento")
-            senha = request.data.get("senha")
-
-            print("--- DADOS DO FUNCIONÁRIO RECEBIDOS ---")
-            print(f"Nome: {nome}")
-            print(f"Sobrenome: {sobrenome}")
-            print(f"CPF: {cpf}")
-            print(f"Email: {email}")
-            print(f"Telefone: {telefone}")
-            print(f"Data de Nascimento: {nascimento}")
-            print(f"Senha: {senha}")
-            print("------------------------------------")
-
-            return Response(
-             {"message": "Funcionário cadastrado com sucesso!"},
-             status=status.HTTP_201_CREATED
-        )
-
-        except Exception as e:
-            print(f"Erro ao verificar limite de usuários: {e}")
-            return Response(
-                {"error": "Erro interno ao verificar limite."},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
         
 def _get_media_importancia_points(media):
     if media <= 2: return 0

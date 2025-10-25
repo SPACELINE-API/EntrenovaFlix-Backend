@@ -99,5 +99,19 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         token['email'] = user.email
         token['sobrenome'] = user.sobrenome
         token['role'] = user.role
+        token['primeiro_login'] = user.primeiro_login
 
         return token
+    
+    def validate(self, attrs):
+        # Pega a resposta padrão (que contém 'access' e 'refresh')
+        data = super().validate(attrs)
+
+        # Adiciona seus campos customizados à resposta JSON principal
+        # 'self.user' é o usuário que está sendo autenticado
+        data['role'] = self.user.role
+        data['primeiro_login'] = self.user.primeiro_login # <-- ADICIONADO
+        data['email'] = self.user.email
+        data['nome'] = self.user.nome
+        
+        return data

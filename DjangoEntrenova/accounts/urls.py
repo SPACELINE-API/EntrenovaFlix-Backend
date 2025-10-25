@@ -5,12 +5,13 @@ from .serializers import MyTokenObtainPairSerializer
 from .views import RegisterView, MeuViewSet
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from .views import (
-    RegisterView, PostListCreateView, 
-    PostDetailView, ComentarioListCreateView
-)
+    RegisterView, PostListCreateView, PostDetailView, ComentarioListCreateView, FuncionariosView, EmpresaRegistrationView, PrimeiroLoginView)
 
 urlpatterns = [
+    path('funcionarios', FuncionariosView.as_view(), name='funcionarios'),
     path('register', RegisterView.as_view(), name='register'),
+    path('register-empresa', EmpresaRegistrationView.as_view(), name='register_empresa_rh'),
+    path('primeiro-login', PrimeiroLoginView.as_view(), name='primeiro-login'),
     path('login', TokenObtainPairView.as_view(serializer_class=MyTokenObtainPairSerializer), name='token_obtain_pair'),
     path('login/refresh', TokenRefreshView.as_view(), name='token_refresh'),
     path('meu-endpoint', MeuViewSet.as_view(), name='meu_endpoint'),  
