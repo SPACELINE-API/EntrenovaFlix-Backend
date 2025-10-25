@@ -3,7 +3,6 @@ from django.db import models
 import uuid
 from django.conf import settings
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
-# A importação de 'User' foi removida daqui
 
 class UsuarioManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
@@ -28,6 +27,18 @@ class UsuarioManager(BaseUserManager):
         return self.create_user(email, password, **extra_fields)
 
 
+class Empresas(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    nome = models.CharField(max_length=255, unique=True)
+    # Você pode adicionar outros campos aqui depois, como CNPJ, etc.
+
+    def __str__(self):
+        return self.nome
+
+    class Meta:
+        db_table = 'empresas'
+        verbose_name_plural = 'Empresas'
+
 class Usuario(AbstractBaseUser, PermissionsMixin):
     ROLE_ADMIN = 'admin'
     ROLE_RH = 'rh'
@@ -46,11 +57,12 @@ class Usuario(AbstractBaseUser, PermissionsMixin):
     is_staff = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     email = models.EmailField(unique=True) 
-    nome = models.TextField()
-    
+    nome = models.CharField(max_length=150) 
+    sobrenome = models.CharField(max_length=150, null=True, blank = True )
     cpf = models.CharField(unique=True, max_length=14, null=True, blank=True)
-    
-    empresa = models.TextField(blank=True, null=True)
+    telefone = models.CharField(max_length=15, null=True, blank=True)
+    data_nascimento = models.DateField(null=True, blank=True) 
+    empresa = models.ForeignKey(Empresas, on_delete=models.SET_NULL, null=True, blank=True)
     role = models.CharField(
         max_length=20,
         choices=ROLE_CHOICES,
@@ -84,7 +96,7 @@ class Posts(models.Model):
 
 class Comentarios(models.Model):
     usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    post = models.ForeignKey(Posts, on_delete=models.CASCADE)  # aqui é o problema
+    post = models.ForeignKey(Posts, on_delete=models.CASCADE)
     conteudo = models.TextField()
     data_criacao = models.DateTimeField(blank=True, null=True)
     resposta_a = models.ForeignKey('self', on_delete=models.CASCADE, db_column='resposta_a', blank=True, null=True)
