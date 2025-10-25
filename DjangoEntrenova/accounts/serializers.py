@@ -71,12 +71,11 @@ class UserSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
 
-        empresa_data = validated_data.pop('empresa', None)
+        empresa_nome_str = validated_data.pop('empresa', None)
         empresa_obj = None
 
-        if empresa_data and empresa_data.get('nome'):
-            empresa_nome = empresa_data.get('nome')
-            empresa_obj, created = Empresa.objects.get_or_create(nome=empresa_nome)
+        if empresa_nome_str:
+            empresa_obj, created = Empresa.objects.get_or_create(nome=empresa_nome_str)
         user = Usuario.objects.create_user(
             email=validated_data['email'],
             nome=validated_data['nome'],

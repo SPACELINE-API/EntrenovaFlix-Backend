@@ -147,9 +147,9 @@ class FuncionariosView(APIView):
         if not empresa:
             return Response({"error": "Usuário não está vinculado a nenhuma empresa."}, status=status.HTTP_403_FORBIDDEN)
 
-        funcionarios = Usuario.objects.filter(empresa=empresa).values(
+        funcionarios = Usuario.objects.filter(empresa=empresa).exclude(id=request.user.id).values(
             "id", "nome", "sobrenome", "email", "cpf", "telefone",
-            "is_active", "role", "date_joined"
+            "is_active", "role"
         ).order_by('nome', 'sobrenome')
 
         return Response(list(funcionarios), status=status.HTTP_200_OK)
