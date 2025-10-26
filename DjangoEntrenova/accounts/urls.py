@@ -19,5 +19,5 @@ urlpatterns = [
     path('posts', PostListCreateView.as_view(), name='post-list-create'),
     path('posts/<uuid:pk>', PostDetailView.as_view(), name='post-detail'),
     path('posts/<uuid:post_id>/comentarios', ComentarioListCreateView.as_view(), name='comentario-list-create'),
-    path('gerar-pdf', GerarPDFView.as_view(), name='gerar_pdf')
+    path('gerar-pdf/', GerarPDFView.as_view(), name='gerar_pdf')
 ]
