@@ -2,12 +2,25 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import AllowAny 
+from accounts.models import Empresa, Usuario
 from .ai_service import gemini_service, gemini_service_flash
 import json
 import re
 from rest_framework.permissions import IsAuthenticated 
 
-#chatbot
+class AprovarPagamentoView (APIView):
+    permission_classes = [AllowAny]
+    def post(self, request, cnpj):
+        try:
+            empresa = Empresa.objects.get(cnpj=cnpj)
+            empresa.aprovar_pagamento()
+            return Response({"message": "Pagamento aprovado"}, status=status.HTTP_200_OK)
+        except Empresa.DoesNotExist:
+            return Response ({"error": "Empresa não encontrada"}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+             return Response ({"error": f"Erro ao aprovar pagamento: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+
 class ChatbotView(APIView):
     permission_classes = [AllowAny]
 
@@ -20,6 +33,7 @@ class ChatbotView(APIView):
 
         user_message = request.data.get('message')
         history = request.data.get('history', [])
+        form_data_str = request.data.get('formu', '{}') 
         form_data_str = request.data.get('formu', '{}') 
 
         try:
@@ -162,7 +176,7 @@ class DiagnosticAIView(APIView):
                 "1": "Visão de Futuro", "2": "Estratégia e Planejamento", "3": "Inovação e Experimentação",
                 "4": "Conexão da Estratégia com o Dia a Dia", "5": "Propósito e Missão", "6": "Ferramentas de Gestão Estratégica"
             }
-        }
+        }   
     }
     def _call_gemini_api(self, system_prompt, user_message):
         try:
@@ -189,16 +203,29 @@ class DiagnosticAIView(APIView):
         final_diagnosis = {}
         
         system_prompt_template = """
-            Você é um especialista em desenvolvimento organizacional. Sua tarefa é analisar os resultados de uma ÚNICA dimensão de um diagnóstico empresarial.
-            Com base nos dados a seguir para a dimensão '{dimension_title}', gere um relatório em formato JSON com "fortes", "fracos" e "recomendacao".
-            Para "fortes" e "fracos", não retorne apenas o nome do tópico. Em vez disso, crie uma frase descritiva que explique o significado do resultado.
-            Exemplo: se o tópico 'Comunicação e Alinhamento' tem um resultado 'Otimizado', um bom ponto forte seria: "Comunicação e Alinhamento (Otimizado): A empresa demonstra uma comunicação clara e eficaz, mantendo as equipes bem alinhadas com os objetivos estratégicos."
-            - Para "fortes", identifique os tópicos com os melhores resultados (estágios 'Estratégico' ou 'Otimizado') e descreva-os como no exemplo.
-            - Para "fracos", identifique os tópicos com os piores resultados (estágios 'Inicial' ou 'Reativo') e descreva-os de forma semelhante.
-            - Para "recomendacao", forneça 2 a 3 sugestões práticas e acionáveis focadas nos pontos fracos.
+            Você é um especialista em desenvolvimento organizacional. Sua tarefa é analisar os resultados de uma ÚNICA dimensão de um diagnóstico empresarial: '{dimension_title}'.
+            
+            Com base nos dados fornecidos, gere um relatório em formato JSON com 6 chaves: "fortes", "fracos", "recomendacao", "score", "soft_skills_sugeridas", e "tags_de_interesse".
+
+            1.  Para "fortes": Identifique os tópicos com os melhores resultados (estágios 'Estratégico' ou 'Otimizado') e crie uma frase descritiva para cada.
+                Exemplo: "Comunicação e Alinhamento (Otimizado): A empresa demonstra uma comunicação clara e eficaz."
+            2.  Para "fracos": Identifique os tópicos com os piores resultados (estágios 'Inicial' ou 'Reativo') e descreva-os de forma semelhante.
+            3.  Para "recomendacao": Forneça 2 a 3 sugestões práticas e acionáveis focadas nos pontos fracos. Esta é a recomendação principal para esta dimensão.
+            4.  Para "score": Gere um número inteiro de 0 a 100 que represente a maturidade desta dimensão. (100 = Otimizado, 0 = Reativo).
+            5.  Para "soft_skills_sugeridas": Com base nos pontos fracos, sugira de 3 a 5 soft skills que deveriam ser desenvolvidas. (Ex: "Comunicação Clara", "Gestão de Tempo").
+            6.  Para "tags_de_interesse": Com base no contexto geral da dimensão, sugira 3 a 4 tags de interesse ou conceitos relacionados. (Ex: "Cultura de Feedback", "Metodologias Ágeis", "OKRs").
+
             Formate sua resposta EXCLUSIVAMENTE como um objeto JSON com a estrutura:
-            {{ "summary": {{ "fortes": [], "fracos": [], "recomendacao": [] }} }}
+            {{ "summary": {{ 
+                "fortes": [], 
+                "fracos": [], 
+                "recomendacao": [], 
+                "score": <numero_de_0_a_100>,
+                "soft_skills_sugeridas": [],
+                "tags_de_interesse": []
+            }} }}
         """
+        
 
         for dimension_key in selected_dimensions:
             if dimension_key not in self.DIMENSION_MAPPING:
@@ -226,7 +253,10 @@ class DiagnosticAIView(APIView):
                 final_diagnosis[dimension_key] = {
                     "fortes": ["Erro ao analisar esta dimensão."],
                     "fracos": ["Não foi possível gerar pontos a melhorar."],
-                    "recomendacao": ["Tente novamente mais tarde."]
+                    "recomendacao": ["Tente novamente mais tarde."],
+                    "score": 0,
+                    "soft_skills_sugeridas": ["N/A"],
+                    "tags_de_interesse": ["N/A"]
                 }
 
         return Response(final_diagnosis, status=status.HTTP_200_OK)
@@ -300,29 +330,75 @@ class ProximosPassosView(APIView):
             "longo_prazo": {"foco": "", "acoes": []},
         }
         return Response(fallback, status=status.HTTP_200_OK)
-
-class funcionarios(APIView):
-    permission_classes = [IsAuthenticated]
-    def post(self, request):
-        nome = request.data.get("nome")
-        sobrenome = request.data.get("sobrenome")
-        cpf = request.data.get("cpf")
-        email = request.data.get("email")
-        telefone = request.data.get("telefone")
-        nascimento = request.data.get("nascimento")
-        senha = request.data.get("senha")
-
-        print("--- DADOS DO FUNCIONÁRIO RECEBIDOS ---")
-        print(f"Nome: {nome}")
-        print(f"Sobrenome: {sobrenome}")
-        print(f"CPF: {cpf}")
-        print(f"Email: {email}")
-        print(f"Telefone: {telefone}")
-        print(f"Nascimento: {nascimento}")
-        print(f"Senha: {senha}")
-        print("------------------------------------")
         
-        return Response(
-            {"message": "Funcionário recebido com sucesso!"},
-            status=status.HTTP_201_CREATED
-        )
+def _get_media_importancia_points(media):
+    if media <= 2: return 0
+    if media == 3: return 1
+    if media == 4: return 2
+    if media == 5: return 3
+    return 0
+
+class LeadScoreView(APIView):
+    """
+    Calcula o Lead Score com base nas respostas do formulário inicial (Etapa 1 e 2).
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        data = request.data
+        if not data:
+            return Response({"error": "Nenhum dado fornecido."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            profile = {
+                "colaboradores": data.get("numeroColaboradores"),
+                "porte": data.get("porteEmpresa"),
+                "investimento": data.get("faixaInvestimento"),
+                "decisor": data.get("decisorContratacao"),
+                "aberturaInovacao": data.get("aberturaInovacao"),
+                "projetosAnteriores": data.get("implementouProjetosInovadores"),
+                "urgencia": data.get("tempoInicio"),
+            }
+            media_importancia = (
+                float(data.get("importanciaDesenvolvimento", '0') or '0') +
+                float(data.get("importanciaSoftSkills", '0') or '0') +
+                float(data.get("importanciaCultura", '0') or '0') +
+                float(data.get("importanciaImpacto", '0') or '0')
+            ) / 4
+
+            points = {
+                "colaboradores": {"ate10": 1, "11a30": 2, "30a100": 3, "acima100": 4, "acima500": 5},
+                "porte": {"Startup": 2, "PME": 3, "Grande Empresa": 5},
+                "investimento": {"ate10k": 1, "10ka50k": 3, "acima50k": 5},
+                "decisor": {"CEO/Diretor": 3, "RH/T&D": 2, "Marketing": 1, "Outro": 0},
+                "aberturaInovacao": {"1": 0, "2": 0, "3": 1, "4": 2, "5": 3},
+                "projetosAnteriores": {"Sim": 2, "Nao": 0},
+                "urgencia": {"Imediatamente": 3, "ate3meses": 2, "6mesesoumais": 1}
+            }
+
+            total_score = 0
+            total_score += points["colaboradores"].get(profile["colaboradores"], 0)
+            total_score += points["porte"].get(profile["porte"], 0)
+            total_score += points["investimento"].get(profile["investimento"], 0)
+            total_score += points["decisor"].get(profile["decisor"], 0)
+            total_score += points["aberturaInovacao"].get(profile["aberturaInovacao"], 0)
+            total_score += _get_media_importancia_points(media_importancia)
+            total_score += points["projetosAnteriores"].get(profile["projetosAnteriores"], 0)
+            total_score += points["urgencia"].get(profile["urgencia"], 0)
+
+            if total_score >= 19:
+                classification, className = "Quente", "quente"
+            elif total_score >= 11:
+                classification, className = "Morno", "morno"
+            else:
+                classification, className = "Frio", "frio"
+                
+            return Response({
+                "score": total_score,
+                "classification": classification,
+                "className": className
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            print(f"Erro ao calcular lead score: {e}")
+            return Response({"error": "Erro ao processar dados do lead."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
