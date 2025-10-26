@@ -1,7 +1,7 @@
 # accounts/serializers.py
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework import serializers
-from .models import Usuario, Posts, Comentarios
+from .models import Usuario, Posts, Comentarios, Empresa
 from rest_framework.validators import UniqueValidator
 from rest_framework.generics import ListCreateAPIView
 from django.utils import timezone
@@ -44,7 +44,7 @@ class PostSerializer(serializers.ModelSerializer):
 class PostListCreateView(ListCreateAPIView):
     queryset = Posts.objects.all()
     serializer_class = PostSerializer
-    permission_classes = [IsAuthenticated]  # garante que apenas usuários logados acessem
+    permission_classes = [IsAuthenticated]  
 
     def perform_create(self, serializer):
         print("Usuário logado:", self.request.user)
@@ -55,31 +55,39 @@ class UserSerializer(serializers.ModelSerializer):
         required=True,
         validators=[UniqueValidator(queryset=Usuario.objects.all())]
     )
+
+    empresa = serializers.CharField(source='empresa.nome', required=False, allow_blank=True)
     
     class Meta:
         model = Usuario
-        # Campos que o frontend vai enviar para o registro
-        fields = ('id', 'email', 'password', 'nome', 'cpf', 'empresa', 'role')
+        fields = ('id', 'email', 'password', 'nome', 'sobrenome', 'cpf', 'telefone', 'data_nascimento', 'empresa', 'role')
         extra_kwargs = {
             'password': {'write_only': True},
-            'role': {'required': False}, # Tornamos a role opcional no registro
+            'role': {'required': False}, 
         }
         read_only_fields = ['id']
 
 
 
     def create(self, validated_data):
+
+        empresa_nome_str = validated_data.pop('empresa', None)
+        empresa_obj = None
+
+        if empresa_nome_str:
+            empresa_obj, created = Empresa.objects.get_or_create(nome=empresa_nome_str)
         user = Usuario.objects.create_user(
             email=validated_data['email'],
             nome=validated_data['nome'],
+            sobrenome=validated_data['sobrenome'],
             password=validated_data['password'],
             cpf=validated_data['cpf'],
-            empresa=validated_data.get('empresa', ''),
-            role=validated_data.get('role', Usuario.ROLE_CLIENTE) # Define a role padrão se não for enviada
+            telefone=validated_data.get('telefone'), 
+            data_nascimento=validated_data.get('data_nascimento'),
+            empresa=empresa_obj,
+            role=validated_data.get('role', Usuario.ROLE_CLIENTE)
         )
         return user
-
-# ... seu MyTokenObtainPairSerializer continua igual ...
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod
@@ -88,5 +96,17 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
 
         token['nome'] = user.nome
         token['email'] = user.email
+        token['sobrenome'] = user.sobrenome
+        token['role'] = user.role
+        token['primeiro_login'] = user.primeiro_login
 
         return token
+    
+    def validate(self, attrs):
+        data = super().validate(attrs)
+        data['role'] = self.user.role
+        data['primeiro_login'] = self.user.primeiro_login
+        data['email'] = self.user.email
+        data['nome'] = self.user.nome
+        
+        return data

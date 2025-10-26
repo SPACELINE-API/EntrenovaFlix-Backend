@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+{% load i18n %}
+<html lang="pt-BR">
+<head>
+ <meta charset="UTF-8">
+ <title>Diagnóstico Organizacional</title>
+ <style>
+  body {
+   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+   color: #333;
+   margin: 20px;
+   line-height: 1.5;
+   background-color: #fff;
+  }
+
+  h1, h2, h3, h4 {
+   color: #004a80;
+   margin-bottom: 6px;
+   font-weight: 600;
+  }
+
+  h1 {
+   font-size: 24px;
+   text-align: center;
+   margin-bottom: 15px;
+  }
+
+  h2 {
+   font-size: 18px;
+   margin-top: 20px;
+   padding-bottom: 4px;
+   color: #004a80;
+  }
+
+  h3 {
+   font-size: 15px;
+   margin-top: 10px;
+   color: #333;
+   font-weight: 600;
+  }
+
+  p {
+    margin: 4px 0;
+    font-size: 14px;
+    color: #555;
+  }
+
+  ul {
+   margin-top: 4px;
+   margin-bottom: 8px;
+   padding-left: 20px;
+  }
+
+  li {
+   margin-bottom: 3px;
+   font-size: 14px;
+   color: #555;
+  }
+
+  hr {
+   border: none;
+   border-top: 1px solid #eee;
+   margin: 20px 0;
+  }
+
+  .pdf-capa {
+   text-align: center;
+   margin-bottom: 30px;
+  }
+   .pdf-capa p {
+    font-size: 14px;
+    color: #555;
+   }
+
+  .resumo-diagnostico {
+    padding: 10px 0;
+    margin-bottom: 20px;
+  }
+  .resumo-diagnostico h2 {
+      border-bottom: 1px solid #eee;
+  }
+
+  .categoria-card {
+    padding: 10px 0;
+    margin-bottom: 15px;
+    page-break-inside: avoid;
+  }
+  .categoria-card h2 {
+      color: #006400;
+      border-bottom: 1px solid #eee;
+  }
+
+  .barra-progresso {
+    display: none;
+  }
+
+  .pontos {
+   display: flex;
+   justify-content: space-between;
+   margin-top: 10px;
+   gap: 20px;
+   page-break-inside: avoid;
+  }
+
+  .pontos-fortes, .pontos-fracos {
+   width: 48%;
+  }
+
+  .pontos-fortes h3 { color: #28a745; font-size: 15px; }
+  .pontos-fracos h3 { color: #dc3545; font-size: 15px;}
+  .pontos ul { list-style: disc; }
+  .pontos li { color: #333; }
+
+  .soft-skills-tags, .tags-interesse {
+   margin-top: 10px;
+  }
+  .soft-skills-tags h3, .tags-interesse h3 {
+      font-size: 15px;
+      color: #333;
+  }
+
+  .soft-skills-tags ul, .tags-interesse ul {
+   list-style: none;
+   padding-left: 0;
+   display: flex;
+   flex-wrap: wrap;
+   gap: 6px;
+   margin-top: 5px;
+  }
+
+  .soft-skills-tags li, .tags-interesse li {
+   background-color: #eaf0f6;
+   color: #3b5a7e;
+   padding: 3px 8px;
+   border-radius: 4px;
+   font-size: 12px;
+   font-weight: 500;
+  }
+
+  .proximos-passos {
+   margin-top: 20px;
+   page-break-inside: avoid;
+  }
+  .proximos-passos h2 {
+      border-bottom: 1px solid #eee;
+  }
+
+  .passo-card {
+    padding: 8px 0;
+    margin-bottom: 10px;
+  }
+
+  .passo-card h3 {
+   margin: 0 0 4px 0;
+   font-size: 15px;
+   color: #333;
+  }
+  .passo-card ul { list-style: disc; }
+  .passo-card li { color: #333; }
+
+ </style>
+</head>
+<body>
+
+ <div class="pdf-capa">
+  <h1>Diagnóstico Organizacional</h1>
+  {% if formData.nomeEmpresa %}
+   <p><strong>Empresa:</strong> {{ formData.nomeEmpresa }}</p>
+  {% endif %}
+   <p><strong>Data:</strong> {% now "d/m/Y" %}</p>
+ </div>
+
+ <hr/>
+
+ <div class="resumo-diagnostico">
+  <h2>Resumo do Diagnóstico</h2>
+  {% if recommendedCategory %}
+   <p><strong>Dimensão prioritária:</strong> {{ recommendedCategory.title }}</p>
+   <p><strong>Recomendação principal:</strong> {{ mainRecommendation }}</p>
+  {% endif %}
+  {% if leadScoreInfo %}
+   <p><strong>Lead Score:</strong> {{ leadScoreInfo.score }} ({{ leadScoreInfo.classification }})</p>
+  {% endif %}
+ </div>
+
+ {% for key, category in diagnosticResult.items %}
+  <div class="categoria-card">
+   <div class="categoria-header">
+    <h2>{{ category.titulo }}</h2>
+   </div>
+
+   <div class="pontos">
+    <div class="pontos-fortes">
+     <h3>Pontos Fortes</h3>
+     <ul>
+     {% for item in category.fortes %}
+      <li>{{ item }}</li>
+     {% empty %}
+      <li>Nenhum ponto forte encontrado.</li>
+     {% endfor %}
+     </ul>
+    </div>
+    <div class="pontos-fracos">
+     <h3>Pontos a Melhorar</h3>
+     <ul>
+     {% for item in category.fracos %}
+      <li>{{ item }}</li>
+     {% empty %}
+      <li>Nenhum ponto a melhorar encontrado.</li>
+     {% endfor %}
+     </ul>
+    </div>
+   </div>
+
+   {% if category.soft_skills_sugeridas %}
+    <div class="soft-skills-tags">
+     <h3>Soft Skills Sugeridas</h3>
+     <ul>
+     {% for skill in category.soft_skills_sugeridas %}
+      <li>{{ skill }}</li>
+     {% endfor %}
+     </ul>
+    </div>
+   {% endif %}
+
+   {% if category.tags_de_interesse %}
+    <div class="tags-interesse">
+     <h3>Tags de Interesse</h3>
+     <ul>
+     {% for tag in category.tags_de_interesse %}
+      <li>{{ tag }}</li>
+     {% endfor %}
+     </ul>
+    </div>
+   {% endif %}
+  </div>
+ {% endfor %}
+
+ {% if proximosPassos %}
+  <div class="proximos-passos">
+   <h2>Próximos Passos Sugeridos</h2>
+   {% for prazo, step in proximosPassos.items %}
+    <div class="passo-card">
+       <h3>{{ step.foco }} ({{ prazo|capfirst }})</h3>
+     <ul>
+     {% for acao in step.acoes %}
+      <li>{{ acao }}</li>
+     {% empty %}
+      <li>Nenhuma ação definida.</li>
+     {% endfor %}
+     </ul>
+    </div>
+   {% endfor %}
+  </div>
+ {% endif %}
+
+</body>
+</html>
