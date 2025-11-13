@@ -137,7 +137,23 @@ class EmpresaRegistrationView(APIView):
             "empresa": empresa_obj.nome,
             "usuario_email": usuario_rh.email
         }, status=status.HTTP_201_CREATED)
-    
+
+class CnpjView(APIView):
+   permission_classes = [AllowAny]
+   def post(self, request):
+        cnpj_recebido = request.data.get('cnpj', '')
+        cnpj_limpo = re.sub(r'\D', '', cnpj_recebido)
+        exists = Empresa.objects.filter(cnpj=cnpj_limpo).exists()
+        return Response({"exists": exists}, status=status.HTTP_200_OK)
+
+class CpfView(APIView):
+   permission_classes = [AllowAny]
+   def post(self, request):
+        cpf_recebido = request.data.get('cpf', '')
+        cpf_limpo = re.sub(r'\D', '', cpf_recebido)
+        exists = Usuario.objects.filter(cpf=cpf_limpo).exists()
+        return Response({"exists": exists}, status=status.HTTP_200_OK)
+
 class FuncionariosView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
