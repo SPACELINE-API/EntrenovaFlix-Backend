@@ -59,6 +59,9 @@ class Empresa(models.Model):
         default='pendente'
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    area = models.CharField(max_length=255, default='Não informada')
+    is_active = models.BooleanField(default=True)
+    lead = models.IntegerField(default=0)
 
     def __str__(self):
 
