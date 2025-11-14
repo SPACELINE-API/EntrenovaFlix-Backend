@@ -73,7 +73,13 @@ class ChatbotView(APIView):
             CATÁLOGO DE CONTEÚDO DISPONÍVEL:
             {catalogo_json}
 
-            Siga estes 4 passos na conversa:
+            REGRA DE GATILHO DE ENCERRAMENTO (Prioridade Máxima):
+            - Se a ÚLTIMA MENSAGEM DO USUÁRIO for um pedido claro para parar ou encerrar (ex: "encerrar", "por agora chega", "satisfeito", "pode encerrar"), sua resposta DEVE IGNORAR os Passos 1-3.
+            - Você DEVE ir direto para o PASSO 4: ENCERRAMENTO.
+            - Sua resposta JSON DEVE obrigatoriamente ter "isComplete": true.
+
+            Siga estes 4 passos na conversa (a menos que a REGRA DE GATILHO acima seja ativada):
+            
             PASSO 1: INICIO
             - NÃO cumprimente.
             - Mencione que analisou o formulário (só na primeira vez).
@@ -92,8 +98,8 @@ class ChatbotView(APIView):
             - Consulte o CATÁLOGO e identifique os itens que melhor resolvem as dores discutidas.
             - EXPLIQUE o conteúdo: Diga o nome do conteúdo e (em uma frase) como ele resolve a dor específica.
             - IMEDIATAMENTE APÓS a explicação, pergunte o próximo passo (Ex: "Quer analisar outro ponto ou podemos encerrar por agora?").
-            - Sua resposta JSON DEVE ter a chave "trilhas_recomendadas", que deve ser uma LISTA (array) de objetos.
-            - Exemplo de JSON de recomendação (note a pergunta no final da "reply"):
+            - Sua resposta JSON DEVE ter a chave "trilhas_recomendadas" (uma LISTA de objetos) e "isComplete": false.
+            - Exemplo de JSON de recomendação:
             {{
               "reply": "Para essa questão de prioridades confusas, identifiquei o conteúdo 'Definindo Prioridades Claras'. Ele vai ajudar vocês a organizar o fluxo de trabalho de forma visual.\\n\\nQuer analisar outro ponto ou podemos encerrar por agora?",
               "trilhas_recomendadas": [
@@ -103,11 +109,11 @@ class ChatbotView(APIView):
             }}
 
             PASSO 4: ENCERRAMENTO
-            - IMPORTANTE: Se o usuário quiser encerrar ("encerrar", "por agora chega", "satisfeito"), sua resposta JSON DEVE ter "isComplete": true.
-            - NO ENCERRAMENTO: Sua "reply" final DEVE ser uma despedida curta E a lista completa de TODOS os conteúdos recomendados.
+            - (Ativado pela REGRA DE GATILHO ou quando o usuário confirma o fim da conversa)
+            - Sua "reply" final DEVE ser uma despedida curta E a lista completa de TODOS os conteúdos recomendados.
             - Para isso, olhe o histórico da conversa e os itens do CATÁLOGO que você recomendou (usando os IDs).
             - Liste cada item com Título e a "dica_rapida" (que serve como descrição breve).
-            - Exemplo de JSON de ENCERRAMENTO:
+            - Exemplo de JSON de ENCERRAMENTO (isComplete DEVE ser true):
             {{
               "reply": "Combinado. Aqui está o resumo dos conteúdos que identificamos:\\n\\n- [Título do Vídeo 1]: [dica_rapida do vídeo 1]\\n- [Título do Vídeo 2]: [dica_rapida do vídeo 2]\\n\\nAté a próxima!",
               "trilhas_recomendadas": [],
@@ -121,7 +127,7 @@ class ChatbotView(APIView):
             - Sua resposta DEVE SER SEMPRE um objeto JSON válido com as chaves "reply" (string com o texto formatado com \\n) e "isComplete" (booleano).
             - REGRA CRÍTICA DO 'isComplete':
                 - Se a sua "reply" é uma pergunta ou transição (PASSO 1, 2 ou 3), 'isComplete' DEVE ser 'false'.
-                - Se a sua "reply" contém a despedida final com a lista de resumos (PASSO 4, ex: "Aqui está o resumo... Até a próxima!"), 'isComplete' DEVE ser 'true'. Não há exceções.
+                - Se a sua "reply" contém a despedida final com a lista de resumos (PASSO 4), 'isComplete' DEVE ser 'true'.
         """
 
         try:
