@@ -6,7 +6,6 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.db import IntegrityError, transaction
 import re
-
 from .models import Posts, Comentarios, Usuario, Empresa, Plans
 from .serializers import PostSerializer, ComentarioSerializer, UserSerializer, MyTokenObtainPairSerializer
 from django.http import HttpResponse
@@ -138,6 +137,7 @@ class EmpresaRegistrationView(APIView):
             "usuario_email": usuario_rh.email
         }, status=status.HTTP_201_CREATED)
 
+
 class CnpjView(APIView):
    permission_classes = [AllowAny]
    def post(self, request):
@@ -153,6 +153,7 @@ class CpfView(APIView):
         cpf_limpo = re.sub(r'\D', '', cpf_recebido)
         exists = Usuario.objects.filter(cpf=cpf_limpo).exists()
         return Response({"exists": exists}, status=status.HTTP_200_OK)
+    
 
 class FuncionariosView(APIView):
     authentication_classes = [JWTAuthentication]
