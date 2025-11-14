@@ -154,6 +154,7 @@ class CpfView(APIView):
         exists = Usuario.objects.filter(cpf=cpf_limpo).exists()
         return Response({"exists": exists}, status=status.HTTP_200_OK)
     
+
 class FuncionariosView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
