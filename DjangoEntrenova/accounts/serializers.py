@@ -110,3 +110,24 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         data['nome'] = self.user.nome
         
         return data
+    
+class EmpresaSerializer(serializers.ModelSerializer):
+    total_usuarios = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Empresa
+        fields = [
+            'cnpj',
+            'id',
+            'nome',
+            'area',
+            'plano',
+            'lead',
+            'is_active',
+            'status_pagamento',
+            'created_at',
+            'total_usuarios',
+        ]
+    
+    def get_total_usuarios(self, obj):
+        return obj.total_usuarios()
