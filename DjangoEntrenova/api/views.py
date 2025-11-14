@@ -118,7 +118,10 @@ class ChatbotView(APIView):
             - Tom profissional, empático e natural.
             - Respostas EXTREMAMENTE curtas e objetivas.
             - FORMATAÇÃO OBRIGATÓRIA DA RESPOSTA:
-            - Sua resposta DEVE SER SEMPRE um objeto JSON válido com as chaves "reply" (string com o texto formatado com \\n) e "isComplete" (booleano). Pode opcionalmente conter "trilhas_recomendadas" (uma lista de objetos).
+            - Sua resposta DEVE SER SEMPRE um objeto JSON válido com as chaves "reply" (string com o texto formatado com \\n) e "isComplete" (booleano).
+            - REGRA CRÍTICA DO 'isComplete':
+                - Se a sua "reply" é uma pergunta ou transição (PASSO 1, 2 ou 3), 'isComplete' DEVE ser 'false'.
+                - Se a sua "reply" contém a despedida final com a lista de resumos (PASSO 4, ex: "Aqui está o resumo... Até a próxima!"), 'isComplete' DEVE ser 'true'. Não há exceções.
         """
 
         try:
