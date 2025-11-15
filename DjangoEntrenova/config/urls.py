@@ -20,5 +20,6 @@ urlpatterns = [
     path('api/chatbot/', ChatbotView.as_view(), name='chatbot'),
     path('api/diagnostico/avaliar', DiagnosticAIView.as_view(), name='avaliar-diagnostico'),
     path('api/lead-score/', LeadScoreView.as_view(), name='lead_score'),
-    path('api/proximos-passos/', ProximosPassosView.as_view(), name='proximos_passos')
+    path('api/proximos-passos/', ProximosPassosView.as_view(), name='proximos_passos'),
+    path('')
 ]

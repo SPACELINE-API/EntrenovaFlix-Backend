@@ -410,3 +410,4 @@ class LeadScoreView(APIView):
         except Exception as e:
             print(f"Erro ao calcular lead score: {e}")
             return Response({"error": "Erro ao processar dados do lead."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
