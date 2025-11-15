@@ -22,7 +22,6 @@
     </head>
     <body>
     <h1>{{ chat.tipo_trilha }}</h1>
-    <small>Realizado em: {{ chat.created_at|date:"d/m/Y H:i" }}</small>
     <div class="conversa">
         {% for msg in chat.conversa_completa %}
             <div class="msg msg-{{ msg.sender }}">
