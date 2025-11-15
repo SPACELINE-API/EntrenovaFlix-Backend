@@ -190,3 +190,29 @@ class Formulario1(models.Model):
     
     class Meta:
         db_table = 'formulario1'
+
+class DiagnosticoChat(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False) 
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.CASCADE, 
+        related_name="diagnosticos_chatbot" 
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    tipo_trilha = models.CharField(max_length=255)
+    conversa_completa = models.JSONField()
+
+    class Meta:
+        ordering = ['-created_at']
+        db_table = 'diagnosticos_chatbot' 
+        verbose_name_plural = "Diagnósticos"
+
+    def __str__(self):
+        return f"Diagnóstico de {self.tipo_trilha} para {self.user.email}"
+
+
+
+
+
+
+
