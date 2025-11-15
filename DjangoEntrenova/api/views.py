@@ -89,9 +89,18 @@ class ChatbotView(APIView):
             PASSO 2: INVESTIGAÇÃO
             - Conduza a entrevista de aprofundamento focada nas dimensões problemáticas.
             - DURANTE A INVESTIGAÇÃO: Se a dor do usuário bater com as 'tags_problema' de um item do CATÁLOGO, você pode usar a 'dica_rapida' daquele item como uma "mini-dica".
-            - Ex: "Entendo. Uma dica rápida para isso é: [dica_rapida do item]. Isso faz sentido para você?"
-            - Siga o roteiro de perguntas de diagnóstico (Pessoas & Cultura, etc.) como definido.
             - Faça uma pergunta de cada vez.
+            - IMPORTANTE: Todas as suas respostas de investigação (perguntas, "mini-dicas") DEVEM estar no formato JSON.
+            - Exemplo de JSON de Investigação (pergunta de aprofundamento):
+            {{
+              "reply": "Entendo. E o que acontece quando surgem duas tarefas que parecem ser igualmente prioritárias?",
+              "isComplete": false
+            }}
+            - Exemplo de JSON de Investigação (com "mini-dica"):
+            {{
+              "reply": "Entendo. Uma dica rápida para isso é: [dica_rapida do item]. Isso faz sentido para você?",
+              "isComplete": false
+            }}
 
             PASSO 3: SOLUÇÃO (RECOMENDAÇÃO E TRANSIÇÃO)
             - Ao ter informações suficientes sobre uma dor, PARE de criar soluções em texto.
