@@ -5,7 +5,7 @@ from .serializers import MyTokenObtainPairSerializer
 from .views import RegisterView, MeuViewSet
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from .views import (
-    RegisterView, PostListCreateView, PostDetailView, ComentarioListCreateView, FuncionariosView, EmpresaRegistrationView, CnpjView, CpfView, PrimeiroLoginView, GerarPDFView)
+    RegisterView, PostListCreateView, PostDetailView, ComentarioListCreateView, FuncionariosView, EmpresaRegistrationView, CnpjView, CpfView, PrimeiroLoginView, GerarPDFView, SalvarDiagnosticoView, VerDiagnosticoView, ListarDiagnosticosView, GerarChatPDFView)
 
 urlpatterns = [
     path('funcionarios', FuncionariosView.as_view(), name='funcionarios'),
@@ -20,5 +20,9 @@ urlpatterns = [
     path('posts', PostListCreateView.as_view(), name='post-list-create'),
     path('posts/<uuid:pk>', PostDetailView.as_view(), name='post-detail'),
     path('posts/<uuid:post_id>/comentarios', ComentarioListCreateView.as_view(), name='comentario-list-create'),
-    path('gerar-pdf', GerarPDFView.as_view(), name='gerar_pdf')
+    path('gerar-pdf', GerarPDFView.as_view(), name='gerar_pdf'),
+    path('api/diagnosticos/salvar/', SalvarDiagnosticoView.as_view(), name='api_salvar_diagnostico'),
+    path('api/diagnosticos/listar/', ListarDiagnosticosView.as_view(), name='api_listar_diagnosticos'),
+    path('api/diagnosticos/<uuid:diagnostico_id>/', VerDiagnosticoView.as_view(), name='api_ver_diagnostico'),
+    path('api/diagnosticos/<uuid:diagnostico_id>/pdf/', GerarChatPDFView.as_view(), name='api_gerar_chat_pdf'),
 ]

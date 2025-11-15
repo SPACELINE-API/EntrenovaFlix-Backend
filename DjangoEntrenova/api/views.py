@@ -21,12 +21,12 @@ class AprovarPagamentoView (APIView):
         except Exception as e:
              return Response ({"error": f"Erro ao aprovar pagamento: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
-
 class ChatbotView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
         if not gemini_service:
+            print("ERRO CRÍTICO NA CHATBOTVIEW: O gemini_service não foi inicializado. Verifique se a GEMINI_API_KEY está correta e se o .env está a ser carregado.")
             return Response(
                 {"error": "O serviço de IA não está disponível."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -62,7 +62,7 @@ class ChatbotView(APIView):
         except Exception as e:
             print(f"ERRO CRÍTICO: Não foi possível carregar o catálogo de trilhas: {e}")
             catalogo_json = "[]"
-
+            
         system_prompt = f"""
             Você é a I.A. da Entrenova, uma consultora de negócios estratégica e proativa.
             Sua missão é diagnosticar e solucionar problemas empresariais de forma empática e prática.
@@ -89,9 +89,18 @@ class ChatbotView(APIView):
             PASSO 2: INVESTIGAÇÃO
             - Conduza a entrevista de aprofundamento focada nas dimensões problemáticas.
             - DURANTE A INVESTIGAÇÃO: Se a dor do usuário bater com as 'tags_problema' de um item do CATÁLOGO, você pode usar a 'dica_rapida' daquele item como uma "mini-dica".
-            - Ex: "Entendo. Uma dica rápida para isso é: [dica_rapida do item]. Isso faz sentido para você?"
-            - Siga o roteiro de perguntas de diagnóstico (Pessoas & Cultura, etc.) como definido.
             - Faça uma pergunta de cada vez.
+            - IMPORTANTE: Todas as suas respostas de investigação (perguntas, "mini-dicas") DEVEM estar no formato JSON.
+            - Exemplo de JSON de Investigação (pergunta de aprofundamento):
+            {{
+              "reply": "Entendo. E o que acontece quando surgem duas tarefas que parecem ser igualmente prioritárias?",
+              "isComplete": false
+            }}
+            - Exemplo de JSON de Investigação (com "mini-dica"):
+            {{
+              "reply": "Entendo. Uma dica rápida para isso é: [dica_rapida do item]. Isso faz sentido para você?",
+              "isComplete": false
+            }}
 
             PASSO 3: SOLUÇÃO (RECOMENDAÇÃO E TRANSIÇÃO)
             - Ao ter informações suficientes sobre uma dor, PARE de criar soluções em texto.
@@ -148,6 +157,7 @@ class ChatbotView(APIView):
             return Response(ai_response, status=status.HTTP_200_OK)
 
         except Exception as e:
+            print(f"ERRO CRÍTICO NA CHATBOTVIEW AO CHAMAR A IA: {e}")
             return Response(
                 {"error": "Ocorreu um erro ao se comunicar com o serviço de IA."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
