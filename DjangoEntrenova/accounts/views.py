@@ -6,7 +6,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.db import IntegrityError, transaction
 import re
-from .models import Posts, Comentarios, Usuario, Empresa, Plans
+from .models import Posts, Comentarios, Usuario, Empresa, Plans, DiagnosticoChat
 from .serializers import PostSerializer, ComentarioSerializer, UserSerializer, MyTokenObtainPairSerializer
 from django.http import HttpResponse
 from django.template.loader import render_to_string
@@ -285,6 +285,76 @@ class GerarPDFView(APIView):
         response = HttpResponse(content_type='application/pdf')
         response['Content-Disposition'] = 'attachment; filename="Diagnóstico Aprofundado.pdf"'
 
+        pisa_status = pisa.CreatePDF(html, dest=response)
+
+        if pisa_status.err:
+            return HttpResponse("Erro ao gerar o PDF")
+        
+        return response
+
+class SalvarDiagnosticoView(APIView):
+    permission_classes = [IsAuthenticated] 
+    def post(self, request):
+        try:
+            conversa_array = request.data.get('conversa')
+            tipo_trilha = request.data.get('tipo_trilha')
+
+            if not conversa_array or not tipo_trilha:
+                return Response({'status': 'erro', 'message': 'Dados incompletos.'}, status=status.HTTP_400_BAD_REQUEST)
+            DiagnosticoChat.objects.create(
+                user=request.user,
+                tipo_trilha=tipo_trilha,
+                conversa_completa=conversa_array
+            )
+            return Response({'status': 'sucesso', 'message': 'Diagnóstico salvo!'}, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({'status': 'erro', 'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class ListarDiagnosticosView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        diagnosticos = DiagnosticoChat.objects.filter(user=request.user)
+        lista_para_frontend = list(diagnosticos.values(
+            'id', 
+            'created_at', 
+            'tipo_trilha'
+        ))
+        
+        return Response({'diagnosticos': lista_para_frontend}, status=status.HTTP_200_OK)
+
+class VerDiagnosticoView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, diagnostico_id):
+        try:
+            diagnostico = DiagnosticoChat.objects.get(id=diagnostico_id, user=request.user)
+            return Response({
+                'tipo_trilha': diagnostico.tipo_trilha,
+                'created_at': diagnostico.created_at,
+                'conversa_completa': diagnostico.conversa_completa
+            }, status=status.HTTP_200_OK)
+            
+        except DiagnosticoChat.DoesNotExist:
+            return Response({'status': 'erro', 'message': 'Diagnóstico não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({'status': 'erro', 'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class GerarChatPDFView(APIView):
+    permission_classes = [IsAuthenticated] 
+
+    def get(self, request, diagnostico_id):
+        try:
+            diagnostico = DiagnosticoChat.objects.get(id=diagnostico_id, user=request.user)     
+        except DiagnosticoChat.DoesNotExist:
+            return Response({'status': 'erro', 'message': 'Diagnóstico não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+        context = {
+            'chat': diagnostico
+        }
+        html = render_to_string('chat_template.html', context)
+
+        response = HttpResponse(content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="diagnostico_{diagnostico_id}.pdf"'
         pisa_status = pisa.CreatePDF(html, dest=response)
 
         if pisa_status.err:

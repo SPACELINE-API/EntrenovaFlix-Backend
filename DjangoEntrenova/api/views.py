@@ -21,12 +21,12 @@ class AprovarPagamentoView (APIView):
         except Exception as e:
              return Response ({"error": f"Erro ao aprovar pagamento: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
-
 class ChatbotView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
         if not gemini_service:
+            print("ERRO CRÍTICO NA CHATBOTVIEW: O gemini_service não foi inicializado. Verifique se a GEMINI_API_KEY está correta e se o .env está a ser carregado.")
             return Response(
                 {"error": "O serviço de IA não está disponível."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -62,7 +62,7 @@ class ChatbotView(APIView):
         except Exception as e:
             print(f"ERRO CRÍTICO: Não foi possível carregar o catálogo de trilhas: {e}")
             catalogo_json = "[]"
-
+            
         system_prompt = f"""
             Você é a I.A. da Entrenova, uma consultora de negócios estratégica e proativa.
             Sua missão é diagnosticar e solucionar problemas empresariais de forma empática e prática.
@@ -148,6 +148,7 @@ class ChatbotView(APIView):
             return Response(ai_response, status=status.HTTP_200_OK)
 
         except Exception as e:
+            print(f"ERRO CRÍTICO NA CHATBOTVIEW AO CHAMAR A IA: {e}")
             return Response(
                 {"error": "Ocorreu um erro ao se comunicar com o serviço de IA."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
