@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Diagnóstico Chat</title>
+    <style>
+        @page { size: A4; margin: 2cm; }
+        body { font-family: sans-serif; font-size: 11pt; }
+        h1 { font-size: 18pt; color: #333; }
+        small { color: #555; }
+        .msg { margin-bottom: 10px; }
+        .msg p {
+            background-color: #f4f4f4;
+            padding: 8px 12px;
+            border-radius: 10px;
+            display: inline-block;
+            margin: 0;
+        }
+        .msg-usuario p { background-color: #dbeafe; }
+        .msg strong { font-weight: bold; }
+    </style>
+    </head>
+    <body>
+    <h1>{{ chat.tipo_trilha }}</h1>
+    <small>Realizado em: {{ chat.created_at|date:"d/m/Y H:i" }}</small>
+    <div class="conversa">
+        {% for msg in chat.conversa_completa %}
+            <div class="msg msg-{{ msg.sender }}">
+                <strong>{% if msg.sender == 'ia' %}IA:{% else %}Você:{% endif %}</strong>
+                <p>{{ msg.text|linebreaksbr }}</p>
+            </div>
+        {% endfor %}
+    </div>
+</body>
+</html>
