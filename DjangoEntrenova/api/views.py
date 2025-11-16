@@ -9,7 +9,9 @@ import json
 import re
 from rest_framework.permissions import IsAuthenticated 
 from .models import conteudoTrilha, TicketMensagem, Ticket
-from .serializers import TicketMensagemSerializer, TicketSerializer
+from .serializers import TicketSerializer
+from django.db import transaction
+
 
 class AprovarPagamentoView (APIView):
     permission_classes = [AllowAny]
@@ -426,6 +428,7 @@ class LeadScoreView(APIView):
 class TicketCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @transaction.atomic
     def post(self, request):
         autor = request.user
         assunto = request.data.get('assunto')
@@ -469,47 +472,6 @@ class AdminTicketListView(APIView):
         serializer = TicketSerializer(tickets, many=True)
 
         return Response(serializer.data)
-
-
-class AdminTicketDetailView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get_object(self, request, pk):
-        if request.user.is_superuser:
-            return get_object_or_404(Ticket, id=pk)
-        else:
-            return get_object_or_404(Ticket, id=pk, empresa=request.user.empresa)
-
-    def get(self, request, pk):
-        ticket = self.get_object(request, pk)
-        serializer = TicketSerializer(ticket)
-        return Response(serializer.data)
-
-    def post(self, request, pk):
-        ticket = self.get_object(request, pk)
-        texto_resposta = request.data.get('texto')
-
-        if not texto_resposta:
-            return Response({"error": "O texto da resposta é obrigatório."}, status=status.HTTP_400_BAD_REQUEST)
-
-        if ticket.status == 'Fechado':
-            return Response({"error": "Este ticket já está fechado."}, status=status.HTTP_400_BAD_REQUEST)
-
-        TicketMensagem.objects.create(
-            ticket=ticket,
-            autor=request.user, 
-            texto=texto_resposta
-        )
-        serializer = TicketMensagemSerializer(ticket.mensagens.last())
-
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-    def patch(self, request, pk):
-        ticket = self.get_object(request, pk)
-        ticket.fechar_ticket() 
-
-        serializer = TicketSerializer(ticket)
-        return Response(serializer.data, status=status.HTTP_200_OK)
     
 class RHTicketListView(APIView):
     permission_classes = [IsAuthenticated]

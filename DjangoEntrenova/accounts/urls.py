@@ -8,10 +8,11 @@ from .views import (
     RegisterView, PostListCreateView, PostDetailView, ComentarioListCreateView, FuncionariosView, EmpresaRegistrationView, CnpjView, CpfView, PrimeiroLoginView, GerarPDFView, SalvarDiagnosticoView, VerDiagnosticoView, ListarDiagnosticosView, GerarChatPDFView)
 from api.views import (
     AdminTicketListView,
-    AdminTicketDetailView,
     TicketCreateView,
-    RHTicketListView
+    RHTicketListView,
 )
+
+from accounts.views import AdminTicketDetailView
 
 urlpatterns = [
     path('funcionarios', FuncionariosView.as_view(), name='funcionarios'),
@@ -35,5 +36,5 @@ urlpatterns = [
     path('tickets/rh/create/', TicketCreateView.as_view(), name='ticket-rh-create'),
     path('tickets/rh/list/', RHTicketListView.as_view(), name='ticket-rh-list'),
     path('tickets/admin/list/', AdminTicketListView.as_view(), name='ticket-admin-list'),
-    path('tickets/admin/<uuid:pk>/', AdminTicketDetailView.as_view(), name='ticket-admin-detail'),
+    path('tickets/admin/<uuid:pk>/', AdminTicketDetailView.as_view(), name='admin-ticket-detail'),
 ]

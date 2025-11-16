@@ -1,3 +1,4 @@
+from django.shortcuts import get_object_or_404
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.views import APIView
@@ -11,6 +12,7 @@ from .serializers import PostSerializer, ComentarioSerializer, UserSerializer, M
 from django.http import HttpResponse
 from django.template.loader import render_to_string
 from xhtml2pdf import pisa
+from api.serializers import TicketMensagemSerializer, TicketSerializer,TicketMensagem, Ticket
 
 class RegisterView(generics.CreateAPIView):
     queryset = Usuario.objects.all()
@@ -420,3 +422,56 @@ class GerarChatPDFView(APIView):
             return HttpResponse("Erro ao gerar o PDF")
         
         return response
+    
+    
+class AdminTicketDetailView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated] 
+
+    def get_object(self, request, pk):
+        is_admin_role = False
+        try:
+            if request.user.role == Usuario.ROLE_ADMIN:
+                is_admin_role = True
+        except AttributeError:
+            pass
+
+        if request.user.is_superuser or is_admin_role:
+            return get_object_or_404(Ticket, id=pk)
+        else:
+            return get_object_or_404(Ticket, id=pk, empresa=request.user.empresa)
+
+    def get(self, request, pk):
+        ticket = self.get_object(request, pk)
+        serializer = TicketSerializer(ticket)
+        return Response(serializer.data)
+
+    def post(self, request, pk):
+        ticket = self.get_object(request, pk)
+        texto_resposta = request.data.get('texto')
+
+        if not texto_resposta:
+            return Response({"error": "O texto da resposta é obrigatório."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if ticket.status == 'Fechado':
+            return Response({"error": "Este ticket já está fechado."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            with transaction.atomic():
+                nova_mensagem = TicketMensagem.objects.create(
+                    ticket=ticket,
+                    autor=request.user, 
+                    texto=texto_resposta
+                )
+                
+                ticket.status = 'Fechado'
+                ticket.save(update_fields=['status'])
+            
+            serializer = TicketMensagemSerializer(nova_mensagem)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        
+        except Exception as e:
+            return Response({
+                "error": "Erro ao salvar a resposta. A operação foi revertida.",
+                "detalhe": str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
