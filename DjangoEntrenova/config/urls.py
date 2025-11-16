@@ -2,8 +2,15 @@
 from django.contrib import admin
 from django.urls import path, include
 from django.urls import path
-from api.views import ChatbotView, LeadScoreView
-from api.views import DiagnosticAIView
+from api.views import (ChatbotView, 
+                       LeadScoreView, 
+                       DiagnosticAIView,
+                       TicketCreateView,
+                       AdminTicketDetailView,
+                       AdminTicketListView,
+                       RHTicketListView
+                       )
+from accounts.views import AdminRegistrationView
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
@@ -21,5 +28,8 @@ urlpatterns = [
     path('api/diagnostico/avaliar', DiagnosticAIView.as_view(), name='avaliar-diagnostico'),
     path('api/lead-score/', LeadScoreView.as_view(), name='lead_score'),
     path('api/proximos-passos/', ProximosPassosView.as_view(), name='proximos_passos'),
-    path('')
+    path('api/accounts/tickets/rh/create/', TicketCreateView.as_view(), name='ticket-rh-create'),
+    path('api/accounts/tickets/admin/list/', AdminTicketListView.as_view(), name='ticket-admin-list'),
+    path('api/accounts/tickets/rh/list/', RHTicketListView.as_view(), name='ticket-rh-list'),
+    path('api/createAdmin', AdminRegistrationView.as_view(), name="criarAdmin"),
 ]

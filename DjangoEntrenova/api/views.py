@@ -1,13 +1,15 @@
+from django.shortcuts import get_object_or_404
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.permissions import AllowAny 
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from accounts.models import Empresa, Usuario
 from .ai_service import gemini_service, gemini_service_flash
 import json
 import re
 from rest_framework.permissions import IsAuthenticated 
-from .models import conteudoTrilha
+from .models import conteudoTrilha, TicketMensagem, Ticket
+from accounts.serializers import TicketMensagemSerializer, TicketSerializer
 
 class AprovarPagamentoView (APIView):
     permission_classes = [AllowAny]
@@ -420,4 +422,123 @@ class LeadScoreView(APIView):
         except Exception as e:
             print(f"Erro ao calcular lead score: {e}")
             return Response({"error": "Erro ao processar dados do lead."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class TicketCreateView(APIView):
+    """
+    View para o RH criar um novo ticket para o Admin.
+    (Cumpre o CA.1 da task)
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        # O 'autor' (remetente) é SEMPRE o usuário logado
+        autor = request.user
         
+        # Validar se o usuário é um RH
+        if autor.role != 'rh':
+            return Response(
+                {"error": "Apenas usuários RH podem criar tickets."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        assunto = request.data.get('assunto')
+        # Seu model usa 'texto'
+        texto_mensagem = request.data.get('texto') 
+
+        if not assunto or not texto_mensagem:
+            return Response(
+                {"error": "Assunto e texto são obrigatórios."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            # 1. Criar o Ticket
+            novo_ticket = Ticket.objects.create(
+                assunto=assunto,
+                autor=autor,
+                empresa=autor.empresa, # Pega a empresa do RH logado
+                status='Aberto'
+            )
+
+            # 2. Criar a primeira Mensagem do ticket
+            TicketMensagem.objects.create(
+                ticket=novo_ticket,
+                autor=autor,
+                texto=texto_mensagem
+            )
+
+            # 3. Retornar o ticket criado
+            serializer = TicketSerializer(novo_ticket)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class AdminTicketListView(APIView):
+    permission_classes = [IsAuthenticated] 
+
+    def get(self, request):
+        if request.user.role == "admin":
+            tickets = Ticket.objects.all().order_by('-created_at')
+        else:
+            tickets = Ticket.objects.filter(empresa=request.user.empresa).order_by('-created_at')
+        serializer = TicketSerializer(tickets, many=True)
+
+        return Response(serializer.data)
+
+
+class AdminTicketDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self, request, pk):
+        if request.user.is_superuser:
+            return get_object_or_404(Ticket, id=pk)
+        else:
+            return get_object_or_404(Ticket, id=pk, empresa=request.user.empresa)
+
+    def get(self, request, pk):
+        ticket = self.get_object(request, pk)
+        serializer = TicketSerializer(ticket)
+        return Response(serializer.data)
+
+    def post(self, request, pk):
+        ticket = self.get_object(request, pk)
+        texto_resposta = request.data.get('texto')
+
+        if not texto_resposta:
+            return Response({"error": "O texto da resposta é obrigatório."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if ticket.status == 'Fechado':
+            return Response({"error": "Este ticket já está fechado."}, status=status.HTTP_400_BAD_REQUEST)
+
+        TicketMensagem.objects.create(
+            ticket=ticket,
+            autor=request.user, 
+            texto=texto_resposta
+        )
+        serializer = TicketMensagemSerializer(ticket.mensagens.last())
+
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def patch(self, request, pk):
+        ticket = self.get_object(request, pk)
+        ticket.fechar_ticket() 
+
+        serializer = TicketSerializer(ticket)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+class RHTicketListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if request.user.role != 'rh':
+            return Response(
+                {"error": "Acesso negado."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        tickets = Ticket.objects.filter(autor=request.user).order_by('-created_at')
+        serializer = TicketSerializer(tickets, many=True)
+
+        return Response(serializer.data)

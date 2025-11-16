@@ -259,6 +259,65 @@ class FuncionariosView(APIView):
         except Exception:
             return Response({"error": "Erro interno ao excluir funcionário."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
+class AdminRegistrationView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        dados = request.data
+        required_fields = ['email', 'nome', 'sobrenome', 'password', 'cpf', 'data_nascimento', 'empresa_id']
+        if not all(dados.get(field) for field in required_fields):
+            return Response(
+                {"error": "Campos obrigatórios: email, nome, sobrenome, password, cpf, data_nascimento, empresa_id."}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            empresa = Empresa.objects.get(id=dados.get("empresa_id"))
+        except Empresa.DoesNotExist:
+            return Response({"error": "Empresa não encontrada."}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            plano = empresa.plano
+            if plano and plano.limite_usuarios and Usuario.objects.filter(empresa=empresa).count() >= plano.limite_usuarios:
+                return Response(
+                    {"error": f"Limite de usuários atingido ({plano.limite_usuarios}) para esta empresa."}, 
+                    status=status.HTTP_403_FORBIDDEN
+                )
+        except Exception:
+            return Response({"error": "Erro ao verificar limite de usuários da empresa."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        try:
+            cpf_limpo = re.sub(r'\D', '', dados.get("cpf", ""))
+            telefone_limpo = re.sub(r'\D', '', dados.get("telefone", ""))
+
+            if len(cpf_limpo) != 11:
+                return Response({"error": "CPF inválido. Deve conter 11 dígitos."}, status=status.HTTP_400_BAD_REQUEST)
+            if telefone_limpo and not (10 <= len(telefone_limpo) <= 11):
+                return Response({"error": "Telefone inválido. Deve conter 10 ou 11 dígitos."}, status=status.HTTP_400_BAD_REQUEST)
+
+            user = Usuario.objects.create_user(
+                email=dados.get("email"),
+                nome=dados.get("nome"),
+                sobrenome=dados.get("sobrenome"),
+                password=dados.get("password"),
+                cpf=cpf_limpo,
+                telefone=telefone_limpo if telefone_limpo else None,
+                data_nascimento=dados.get("data_nascimento"),
+                empresa=empresa, 
+                role=Usuario.ROLE_ADMIN, 
+                is_staff=True 
+            )
+            return Response({"message": "Admin da empresa criado com sucesso!", "id": user.id}, status=status.HTTP_201_CREATED)
+
+        except IntegrityError as e:
+            if 'email' in str(e).lower():
+                return Response({"error": "Este email já está cadastrado."}, status=status.HTTP_400_BAD_REQUEST)
+            if 'cpf' in str(e).lower():
+                return Response({"error": "Este CPF já está cadastrado."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "Erro de integridade ao cadastrar admin."}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({"error": f"Erro inesperado: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
 class GerarPDFView(APIView):
     permission_classes = [AllowAny]
 
