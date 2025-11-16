@@ -37,4 +37,5 @@ urlpatterns = [
     path('tickets/rh/list/', RHTicketListView.as_view(), name='ticket-rh-list'),
     path('tickets/admin/list/', AdminTicketListView.as_view(), name='ticket-admin-list'),
     path('tickets/admin/<uuid:pk>/', AdminTicketDetailView.as_view(), name='admin-ticket-detail'),
+    #path('tickets/colaboradores/list')
 ]

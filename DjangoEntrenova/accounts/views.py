@@ -475,3 +475,10 @@ class AdminTicketDetailView(APIView):
                 "error": "Erro ao salvar a resposta. A operação foi revertida.",
                 "detalhe": str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+class colaboradoresView(APIView):
+    permission_classes = [IsAuthenticated]
+    def get(self, request, pk):
+        ticket = self.get_object(request, pk)
+        serializer = TicketSerializer(ticket)
+        return Response("Sem implementação de código")
