@@ -9,7 +9,7 @@ import json
 import re
 from rest_framework.permissions import IsAuthenticated 
 from .models import conteudoTrilha, TicketMensagem, Ticket
-from accounts.serializers import TicketMensagemSerializer, TicketSerializer
+from .serializers import TicketMensagemSerializer, TicketSerializer
 
 class AprovarPagamentoView (APIView):
     permission_classes = [AllowAny]
@@ -424,25 +424,11 @@ class LeadScoreView(APIView):
             return Response({"error": "Erro ao processar dados do lead."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class TicketCreateView(APIView):
-    """
-    View para o RH criar um novo ticket para o Admin.
-    (Cumpre o CA.1 da task)
-    """
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        # O 'autor' (remetente) é SEMPRE o usuário logado
         autor = request.user
-        
-        # Validar se o usuário é um RH
-        if autor.role != 'rh':
-            return Response(
-                {"error": "Apenas usuários RH podem criar tickets."},
-                status=status.HTTP_403_FORBIDDEN
-            )
-
         assunto = request.data.get('assunto')
-        # Seu model usa 'texto'
         texto_mensagem = request.data.get('texto') 
 
         if not assunto or not texto_mensagem:
@@ -452,22 +438,19 @@ class TicketCreateView(APIView):
             )
 
         try:
-            # 1. Criar o Ticket
             novo_ticket = Ticket.objects.create(
                 assunto=assunto,
                 autor=autor,
-                empresa=autor.empresa, # Pega a empresa do RH logado
+                empresa=autor.empresa, 
                 status='Aberto'
             )
 
-            # 2. Criar a primeira Mensagem do ticket
             TicketMensagem.objects.create(
                 ticket=novo_ticket,
                 autor=autor,
                 texto=texto_mensagem
             )
 
-            # 3. Retornar o ticket criado
             serializer = TicketSerializer(novo_ticket)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 

@@ -32,4 +32,5 @@ urlpatterns = [
     path('api/accounts/tickets/admin/list/', AdminTicketListView.as_view(), name='ticket-admin-list'),
     path('api/accounts/tickets/rh/list/', RHTicketListView.as_view(), name='ticket-rh-list'),
     path('api/createAdmin', AdminRegistrationView.as_view(), name="criarAdmin"),
+    path('api/accounts/tickets/admin/<uuid:pk>/', AdminTicketDetailView.as_view(), name='ticket-admin-detail'),
 ]
