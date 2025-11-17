@@ -190,3 +190,14 @@ class Formulario1(models.Model):
     
     class Meta:
         db_table = 'formulario1'
+
+class TicketColabs(models.Model):
+    usuario = models.ForeignKey(Usuario, on_delete=models.CASCADE)
+    titulo = models.CharField(max_length=150)
+    descricao = models.TextField()
+    categoria = models.CharField(max_length=50)
+    status = models.CharField(max_length=20, default="pendente")
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'tickets'
