@@ -9,3 +9,4 @@ gunicorn
 psycopg2-binary>=2.9
 google.generativeai
 xhtml2pdf
+git+https://github.com/toon-format/toon-python.git
