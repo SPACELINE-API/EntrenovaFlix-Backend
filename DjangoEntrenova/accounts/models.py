@@ -63,6 +63,9 @@ class Empresa(models.Model):
     is_active = models.BooleanField(default=True)
     lead = models.IntegerField(default=0)
 
+    def total_usuarios(self):
+        return self.usuarios.filter(is_active=True).count()
+
     def __str__(self):
 
         return self.nome
