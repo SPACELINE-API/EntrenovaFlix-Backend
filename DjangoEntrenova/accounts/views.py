@@ -395,11 +395,47 @@ def get_mock_engagement_finance_data():
         
         "revenueTotal": 120500.75,
         "historicoTransacoes": [
-            {"id": "t1", "empresa": "Empresa A", "valor": 500, "data": "2025-11-14"},
-            {"id": "t2", "empresa": "Empresa B", "valor": 750, "data": "2025-11-13"},
-            {"id": "t3", "empresa": "Empresa C", "valor": 500, "data": "2025-11-12"},
+            {"id": "t1", "empresa": "Empresa A", "valor": 500, "data": "2025-11-14", "plano": "Premium", "metodo": "Cartão"},
+            {"id": "t2", "empresa": "Empresa B", "valor": 750, "data": "2025-11-13", "plano": "Basic", "metodo": "Boleto"},
+            {"id": "t3", "empresa": "Empresa C", "valor": 500, "data": "2025-11-12", "plano": "Standard", "metodo": "Pix"},
         ]
     }
+def get_mock_engagement_finance_data():
+    return {
+
+        "totalTrilhasCriadas": 85,
+        "trilhasMaisAcessadas": [
+            {"nome": "Liderança 101", "acessos": 1200},
+            {"nome": "Comunicação Efetiva", "acessos": 950},
+            {"nome": "Gestão de Tempo", "acessos": 700},
+        ],
+        "topHobbies": [
+            {"nome": "Leitura", "usuarios": 300},
+            {"nome": "Esportes", "usuarios": 250},
+            {"nome": "Música", "usuarios": 150},
+            {"nome": "Gastronomia", "usuarios": 100},
+        ],
+        "engajamentoVsCrescimento": [
+            ["Jan", 60, 100],
+            ["Fev", 65, 120],
+            ["Mar", 70, 150],
+            ["Abr", 75, 200],
+        ],
+
+        "topDimensoes": [
+            {"nome": "Comunicação", "trabalhadas": 500},
+            {"nome": "Autoconhecimento", "trabalhadas": 450},
+            {"nome": "Liderança", "trabalhadas": 400},
+        ],
+        
+        "revenueTotal": 12500.,
+        "historicoTransacoes": [
+            {"id": "t1", "empresa": "Empresa A", "valor": 1390.90, "data": "2025-11-14", "plano": "Diamante", "metodo": "Cartão"},
+            {"id": "t2", "empresa": "Empresa B", "valor": 990.90, "data": "2025-11-13", "plano": "Premium", "metodo": "Boleto"},
+            {"id": "t3", "empresa": "Empresa C", "valor": 590.90, "data": "2025-11-12", "plano": "Essencial", "metodo": "Pix"},
+        ]
+    }
+
     
 class Dashwidgets(APIView):
 
