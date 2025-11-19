@@ -1,3 +1,4 @@
+from django.shortcuts import get_object_or_404
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.views import APIView
@@ -6,12 +7,12 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.db import IntegrityError, transaction
 import re
-
-from .models import Posts, Comentarios, Usuario, Empresa, Plans
+from .models import Posts, Comentarios, Usuario, Empresa, Plans, DiagnosticoChat
 from .serializers import PostSerializer, ComentarioSerializer, UserSerializer, MyTokenObtainPairSerializer
 from django.http import HttpResponse
 from django.template.loader import render_to_string
 from xhtml2pdf import pisa
+from api.serializers import TicketMensagemSerializer, TicketSerializer,TicketMensagem, Ticket
 
 class RegisterView(generics.CreateAPIView):
     queryset = Usuario.objects.all()
@@ -137,7 +138,25 @@ class EmpresaRegistrationView(APIView):
             "empresa": empresa_obj.nome,
             "usuario_email": usuario_rh.email
         }, status=status.HTTP_201_CREATED)
+
+
+class CnpjView(APIView):
+   permission_classes = [AllowAny]
+   def post(self, request):
+        cnpj_recebido = request.data.get('cnpj', '')
+        cnpj_limpo = re.sub(r'\D', '', cnpj_recebido)
+        exists = Empresa.objects.filter(cnpj=cnpj_limpo).exists()
+        return Response({"exists": exists}, status=status.HTTP_200_OK)
+
+class CpfView(APIView):
+   permission_classes = [AllowAny]
+   def post(self, request):
+        cpf_recebido = request.data.get('cpf', '')
+        cpf_limpo = re.sub(r'\D', '', cpf_recebido)
+        exists = Usuario.objects.filter(cpf=cpf_limpo).exists()
+        return Response({"exists": exists}, status=status.HTTP_200_OK)
     
+
 class FuncionariosView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
@@ -242,6 +261,65 @@ class FuncionariosView(APIView):
         except Exception:
             return Response({"error": "Erro interno ao excluir funcionário."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
+class AdminRegistrationView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        dados = request.data
+        required_fields = ['email', 'nome', 'sobrenome', 'password', 'cpf', 'data_nascimento', 'empresa_id']
+        if not all(dados.get(field) for field in required_fields):
+            return Response(
+                {"error": "Campos obrigatórios: email, nome, sobrenome, password, cpf, data_nascimento, empresa_id."}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            empresa = Empresa.objects.get(id=dados.get("empresa_id"))
+        except Empresa.DoesNotExist:
+            return Response({"error": "Empresa não encontrada."}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            plano = empresa.plano
+            if plano and plano.limite_usuarios and Usuario.objects.filter(empresa=empresa).count() >= plano.limite_usuarios:
+                return Response(
+                    {"error": f"Limite de usuários atingido ({plano.limite_usuarios}) para esta empresa."}, 
+                    status=status.HTTP_403_FORBIDDEN
+                )
+        except Exception:
+            return Response({"error": "Erro ao verificar limite de usuários da empresa."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        try:
+            cpf_limpo = re.sub(r'\D', '', dados.get("cpf", ""))
+            telefone_limpo = re.sub(r'\D', '', dados.get("telefone", ""))
+
+            if len(cpf_limpo) != 11:
+                return Response({"error": "CPF inválido. Deve conter 11 dígitos."}, status=status.HTTP_400_BAD_REQUEST)
+            if telefone_limpo and not (10 <= len(telefone_limpo) <= 11):
+                return Response({"error": "Telefone inválido. Deve conter 10 ou 11 dígitos."}, status=status.HTTP_400_BAD_REQUEST)
+
+            user = Usuario.objects.create_user(
+                email=dados.get("email"),
+                nome=dados.get("nome"),
+                sobrenome=dados.get("sobrenome"),
+                password=dados.get("password"),
+                cpf=cpf_limpo,
+                telefone=telefone_limpo if telefone_limpo else None,
+                data_nascimento=dados.get("data_nascimento"),
+                empresa=empresa, 
+                role=Usuario.ROLE_ADMIN, 
+                is_staff=True 
+            )
+            return Response({"message": "Admin da empresa criado com sucesso!", "id": user.id}, status=status.HTTP_201_CREATED)
+
+        except IntegrityError as e:
+            if 'email' in str(e).lower():
+                return Response({"error": "Este email já está cadastrado."}, status=status.HTTP_400_BAD_REQUEST)
+            if 'cpf' in str(e).lower():
+                return Response({"error": "Este CPF já está cadastrado."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "Erro de integridade ao cadastrar admin."}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({"error": f"Erro inesperado: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
 class GerarPDFView(APIView):
     permission_classes = [AllowAny]
 
@@ -274,3 +352,133 @@ class GerarPDFView(APIView):
             return HttpResponse("Erro ao gerar o PDF")
         
         return response
+
+class SalvarDiagnosticoView(APIView):
+    permission_classes = [IsAuthenticated] 
+    def post(self, request):
+        try:
+            conversa_array = request.data.get('conversa')
+            tipo_trilha = request.data.get('tipo_trilha')
+
+            if not conversa_array or not tipo_trilha:
+                return Response({'status': 'erro', 'message': 'Dados incompletos.'}, status=status.HTTP_400_BAD_REQUEST)
+            DiagnosticoChat.objects.create(
+                user=request.user,
+                tipo_trilha=tipo_trilha,
+                conversa_completa=conversa_array
+            )
+            return Response({'status': 'sucesso', 'message': 'Diagnóstico salvo!'}, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({'status': 'erro', 'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class ListarDiagnosticosView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        diagnosticos = DiagnosticoChat.objects.filter(user=request.user)
+        lista_para_frontend = list(diagnosticos.values(
+            'id', 
+            'created_at', 
+            'tipo_trilha'
+        ))
+        
+        return Response({'diagnosticos': lista_para_frontend}, status=status.HTTP_200_OK)
+
+class VerDiagnosticoView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, diagnostico_id):
+        try:
+            diagnostico = DiagnosticoChat.objects.get(id=diagnostico_id, user=request.user)
+            return Response({
+                'tipo_trilha': diagnostico.tipo_trilha,
+                'created_at': diagnostico.created_at,
+                'conversa_completa': diagnostico.conversa_completa
+            }, status=status.HTTP_200_OK)
+            
+        except DiagnosticoChat.DoesNotExist:
+            return Response({'status': 'erro', 'message': 'Diagnóstico não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({'status': 'erro', 'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class GerarChatPDFView(APIView):
+    permission_classes = [IsAuthenticated] 
+
+    def get(self, request, diagnostico_id):
+        try:
+            diagnostico = DiagnosticoChat.objects.get(id=diagnostico_id, user=request.user)     
+        except DiagnosticoChat.DoesNotExist:
+            return Response({'status': 'erro', 'message': 'Diagnóstico não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+        context = {
+            'chat': diagnostico
+        }
+        html = render_to_string('chat_template.html', context)
+
+        response = HttpResponse(content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="diagnostico_{diagnostico_id}.pdf"'
+        pisa_status = pisa.CreatePDF(html, dest=response)
+
+        if pisa_status.err:
+            return HttpResponse("Erro ao gerar o PDF")
+        
+        return response
+    
+    
+class AdminTicketDetailView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated] 
+
+    def get_object(self, request, pk):
+        is_admin_role = False
+        try:
+            if request.user.role == Usuario.ROLE_ADMIN:
+                is_admin_role = True
+        except AttributeError:
+            pass
+
+        if request.user.is_superuser or is_admin_role:
+            return get_object_or_404(Ticket, id=pk)
+        else:
+            return get_object_or_404(Ticket, id=pk, empresa=request.user.empresa)
+
+    def get(self, request, pk):
+        ticket = self.get_object(request, pk)
+        serializer = TicketSerializer(ticket)
+        return Response(serializer.data)
+
+    def post(self, request, pk):
+        ticket = self.get_object(request, pk)
+        texto_resposta = request.data.get('texto')
+
+        if not texto_resposta:
+            return Response({"error": "O texto da resposta é obrigatório."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if ticket.status == 'Fechado':
+            return Response({"error": "Este ticket já está fechado."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            with transaction.atomic():
+                nova_mensagem = TicketMensagem.objects.create(
+                    ticket=ticket,
+                    autor=request.user, 
+                    texto=texto_resposta
+                )
+                
+                ticket.status = 'Fechado'
+                ticket.save(update_fields=['status'])
+            
+            serializer = TicketMensagemSerializer(nova_mensagem)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        
+        except Exception as e:
+            return Response({
+                "error": "Erro ao salvar a resposta. A operação foi revertida.",
+                "detalhe": str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+class colaboradoresView(APIView):
+    permission_classes = [IsAuthenticated]
+    def get(self, request, pk):
+        ticket = self.get_object(request, pk)
+        serializer = TicketSerializer(ticket)
+        return Response("Sem implementação de código")
