@@ -5,7 +5,7 @@ from .serializers import MyTokenObtainPairSerializer
 from .views import RegisterView, MeuViewSet
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from .views import (
-    RegisterView, PostListCreateView, PostDetailView, ComentarioListCreateView, FuncionariosView, EmpresaRegistrationView, CnpjView, CpfView, PrimeiroLoginView, GerarPDFView, SalvarDiagnosticoView, VerDiagnosticoView, ListarDiagnosticosView, GerarChatPDFView)
+    RegisterView, PostListCreateView, PostDetailView, ComentarioListCreateView, FuncionariosView, EmpresaRegistrationView, CnpjView, CpfView, PrimeiroLoginView, GerarPDFView, SalvarDiagnosticoView, VerDiagnosticoView, ListarDiagnosticosView, GerarChatPDFView, Dashwidgets)
 
 urlpatterns = [
     path('funcionarios', FuncionariosView.as_view(), name='funcionarios'),
@@ -25,4 +25,5 @@ urlpatterns = [
     path('api/diagnosticos/listar/', ListarDiagnosticosView.as_view(), name='api_listar_diagnosticos'),
     path('api/diagnosticos/<uuid:diagnostico_id>/', VerDiagnosticoView.as_view(), name='api_ver_diagnostico'),
     path('api/diagnosticos/<uuid:diagnostico_id>/pdf/', GerarChatPDFView.as_view(), name='api_gerar_chat_pdf'),
+    path('dashwidgets', Dashwidgets.as_view(), name='dashwidgets'),
 ]
