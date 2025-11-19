@@ -292,7 +292,7 @@ class CriarTicketView(APIView):
             titulo=titulo,
             descricao=descricao,
             categoria=categoria,
-            status="pendente",
+            status="aberto",
         )
 
         return Response(TicketSerializer(ticket).data, status=201)
