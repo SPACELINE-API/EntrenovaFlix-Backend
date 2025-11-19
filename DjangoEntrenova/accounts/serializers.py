@@ -112,6 +112,12 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         return data
     
 class EmpresaSerializer(serializers.ModelSerializer):
+    plano = serializers.SlugRelatedField(
+        read_only=True,
+        slug_field='nome',
+        allow_null=True,
+        required=False
+    )
     total_usuarios = serializers.SerializerMethodField()
 
     class Meta:
