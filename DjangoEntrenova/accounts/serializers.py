@@ -1,7 +1,7 @@
 # accounts/serializers.py
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework import serializers
-from .models import Usuario, Posts, Comentarios, Empresa
+from .models import Usuario, Posts, Comentarios, Empresa, TicketColabs
 from rest_framework.validators import UniqueValidator
 from rest_framework.generics import ListCreateAPIView
 from django.utils import timezone
@@ -110,3 +110,21 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         data['nome'] = self.user.nome
         
         return data
+    
+class TicketSerializer(serializers.ModelSerializer):
+
+    nome = serializers.CharField(source="usuario.nome", read_only=True)
+    sobrenome = serializers.CharField(source="usuario.sobrenome", read_only=True)
+
+    class Meta:
+        model = TicketColabs
+        fields = [
+            "id",
+            "titulo",
+            "descricao",
+            "categoria",
+            "status",
+            "criado_em",
+            "nome",
+            "sobrenome"
+        ]

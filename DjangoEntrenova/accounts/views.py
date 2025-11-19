@@ -7,8 +7,8 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from django.db import IntegrityError, transaction
 import re
 
-from .models import Posts, Comentarios, Usuario, Empresa, Plans
-from .serializers import PostSerializer, ComentarioSerializer, UserSerializer, MyTokenObtainPairSerializer
+from .models import Posts, Comentarios, Usuario, Empresa, Plans, TicketColabs
+from .serializers import PostSerializer, ComentarioSerializer, UserSerializer, MyTokenObtainPairSerializer, TicketSerializer
 from django.http import HttpResponse
 from django.template.loader import render_to_string
 from xhtml2pdf import pisa
@@ -274,3 +274,35 @@ class GerarPDFView(APIView):
             return HttpResponse("Erro ao gerar o PDF")
         
         return response
+
+class CriarTicketView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        titulo = request.data.get("titulo")
+        descricao = request.data.get("descricao")
+        categoria = request.data.get("categoria")
+
+        if not all([titulo, descricao, categoria]):
+            return Response({"error": "Todos os campos são obrigatórios."}, status=400)
+
+        ticket = TicketColabs.objects.create(
+            usuario=request.user,
+            titulo=titulo,
+            descricao=descricao,
+            categoria=categoria,
+            status="aberto",
+        )
+
+        return Response(TicketSerializer(ticket).data, status=201)
+
+class TicketsColaboradoresView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        tickets = TicketColabs.objects.filter(usuario=request.user).order_by("-criado_em")
+        serializer = TicketSerializer(tickets, many=True)
+        
+        return Response(serializer.data, status=200)

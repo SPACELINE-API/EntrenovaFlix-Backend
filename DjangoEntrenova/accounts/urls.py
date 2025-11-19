@@ -5,7 +5,7 @@ from .serializers import MyTokenObtainPairSerializer
 from .views import RegisterView, MeuViewSet
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from .views import (
-    RegisterView, PostListCreateView, PostDetailView, ComentarioListCreateView, FuncionariosView, EmpresaRegistrationView, PrimeiroLoginView, GerarPDFView)
+    RegisterView, PostListCreateView, PostDetailView, ComentarioListCreateView, FuncionariosView, EmpresaRegistrationView, PrimeiroLoginView, GerarPDFView, CriarTicketView, TicketsColaboradoresView)
 
 urlpatterns = [
     path('funcionarios', FuncionariosView.as_view(), name='funcionarios'),
@@ -15,9 +15,10 @@ urlpatterns = [
     path('login', TokenObtainPairView.as_view(serializer_class=MyTokenObtainPairSerializer), name='token_obtain_pair'),
     path('login/refresh', TokenRefreshView.as_view(), name='token_refresh'),
     path('meu-endpoint', MeuViewSet.as_view(), name='meu_endpoint'),  
-
     path('posts', PostListCreateView.as_view(), name='post-list-create'),
     path('posts/<uuid:pk>', PostDetailView.as_view(), name='post-detail'),
     path('posts/<uuid:post_id>/comentarios', ComentarioListCreateView.as_view(), name='comentario-list-create'),
-    path('gerar-pdf', GerarPDFView.as_view(), name='gerar_pdf')
+    path('gerar-pdf', GerarPDFView.as_view(), name='gerar_pdf'),
+    path('criar-ticket', CriarTicketView.as_view(), name='criar-ticket'),
+    path('visualizar-ticket', TicketsColaboradoresView.as_view(), name='visualizar-ticket')
 ]
