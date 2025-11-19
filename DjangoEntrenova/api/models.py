@@ -1,5 +1,6 @@
 import uuid
 from django.db import models
+from django.conf import settings
 
 class categoriaConteudo(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -32,3 +33,58 @@ class conteudoTrilha(models.Model):
     
     class Meta:
         db_table = 'conteudo_trilha'
+
+class Ticket(models.Model):
+    STATUS_CHOICES = [
+        ('Aberto', 'Aberto'),
+        ('Fechado', 'Fechado'),
+    ]
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    assunto = models.CharField(max_length=255)
+    
+    autor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='tickets_criados'
+    )
+    empresa = models.ForeignKey(
+        'accounts.Empresa',
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='tickets'
+    )
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='Aberto')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name_plural = "Tickets de Suporte RH Admin"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Ticket {self.id} ({self.assunto})"
+
+    def fechar_ticket(self):
+        self.status = 'Fechado'
+        self.save()
+
+class TicketMensagem(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    ticket = models.ForeignKey(Ticket, on_delete=models.CASCADE, related_name='mensagens')
+    autor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True
+    )
+    texto = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name_plural = "Mensagens de Ticket RH Admin"
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f"Mensagem {self.id} no Ticket {self.ticket_id}"
+
+
+

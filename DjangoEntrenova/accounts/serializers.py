@@ -118,3 +118,5 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         data['nome'] = self.user.nome
         
         return data
+
+  

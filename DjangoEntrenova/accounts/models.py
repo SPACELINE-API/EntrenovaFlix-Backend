@@ -210,6 +210,8 @@ class DiagnosticoChat(models.Model):
 
     def __str__(self):
         return f"Diagnóstico de {self.tipo_trilha} para {self.user.email}"
+    
+
 
 
 
