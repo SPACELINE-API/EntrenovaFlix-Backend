@@ -599,3 +599,7 @@ class colaboradoresView(APIView):
         ticket = self.get_object(request, pk)
         serializer = TicketSerializer(ticket)
         return Response("Sem implementação de código")
+    
+class aprimoramentoPessoal(APIView):
+    permission_classes = [IsAuthenticated]
+        

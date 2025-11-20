@@ -85,6 +85,31 @@ class TicketMensagem(models.Model):
 
     def __str__(self):
         return f"Mensagem {self.id} no Ticket {self.ticket_id}"
+    
+
+class aprimoramentoPessoal(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    resultado = models.CharField(max_length=255)
+    autor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+    )
+    empresa = models.ForeignKey(
+        'accounts.Empresa',
+        on_delete=models.SET_NULL,
+        null=True,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name_plural = "Aprimoramento pessoal usuario"
+        ordering = ['-created_at']
+        db_table = 'aprimoramentoPessoal'
+
+    def __str__(self):
+        return f"Aprimoramento {self.id} - {self.autor}"
+
 
 
 
