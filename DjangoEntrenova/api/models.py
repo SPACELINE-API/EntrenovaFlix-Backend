@@ -89,7 +89,7 @@ class TicketMensagem(models.Model):
 
 class aprimoramentoPessoal(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    resultado = models.CharField(max_length=255)
+    resultado = models.TextField() 
     autor = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

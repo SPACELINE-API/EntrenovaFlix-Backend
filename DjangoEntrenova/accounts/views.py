@@ -1,3 +1,4 @@
+import json
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -15,7 +16,7 @@ from .serializers import PostSerializer, ComentarioSerializer, UserSerializer, M
 from django.http import HttpResponse
 from django.template.loader import render_to_string
 from xhtml2pdf import pisa
-from api.serializers import TicketMensagemSerializer, TicketSerializer,TicketMensagem, Ticket
+from api.serializers import AprimoramentoPessoalSerializer, TicketMensagemSerializer, TicketSerializer,TicketMensagem, Ticket
 
 class RegisterView(generics.CreateAPIView):
     queryset = Usuario.objects.all()
@@ -602,4 +603,39 @@ class colaboradoresView(APIView):
     
 class aprimoramentoPessoal(APIView):
     permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        respostas = request.data.get('respostas')
+        
+        if not respostas:
+            return Response({"error": "O campo 'respostas' ou 'answers' com os resultados do aprimoramento é obrigatório."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        print(respostas)
+
+        try:
+            resultado_string = json.dumps(respostas)
+        except TypeError:
+            resultado_string = str(respostas) 
+        
+        data = {
+            'resultado': resultado_string,
+        }
+        
+        serializer = AprimoramentoPessoalSerializer(data=data)
+        
+        if serializer.is_valid():
+            
+            user = request.user
+            user_empresa = user.empresa if hasattr(user, 'empresa') and user.empresa else None
+            
+            serializer.save(
+                autor=user, 
+                empresa=user_empresa
+            )
+            
+            return Response({"message": "Resultados de aprimoramento salvos com sucesso.", 
+                             "data": serializer.data}, 
+                            status=status.HTTP_201_CREATED)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
