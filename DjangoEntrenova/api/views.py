@@ -1,13 +1,17 @@
+from django.shortcuts import get_object_or_404
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.permissions import AllowAny 
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from accounts.models import Empresa, Usuario
 from .ai_service import gemini_service, gemini_service_flash
 import json
 import re
 from rest_framework.permissions import IsAuthenticated 
-from .models import conteudoTrilha
+from .models import conteudoTrilha, TicketMensagem, Ticket
+from .serializers import TicketSerializer
+from django.db import transaction
+
 
 class AprovarPagamentoView (APIView):
     permission_classes = [AllowAny]
@@ -420,3 +424,66 @@ class LeadScoreView(APIView):
         except Exception as e:
             print(f"Erro ao calcular lead score: {e}")
             return Response({"error": "Erro ao processar dados do lead."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class TicketCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @transaction.atomic
+    def post(self, request):
+        autor = request.user
+        assunto = request.data.get('assunto')
+        texto_mensagem = request.data.get('texto') 
+
+        if not assunto or not texto_mensagem:
+            return Response(
+                {"error": "Assunto e texto são obrigatórios."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            novo_ticket = Ticket.objects.create(
+                assunto=assunto,
+                autor=autor,
+                empresa=autor.empresa, 
+                status='Aberto'
+            )
+
+            TicketMensagem.objects.create(
+                ticket=novo_ticket,
+                autor=autor,
+                texto=texto_mensagem
+            )
+
+            serializer = TicketSerializer(novo_ticket)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class AdminTicketListView(APIView):
+    permission_classes = [IsAuthenticated] 
+
+    def get(self, request):
+        if request.user.role == "admin":
+            tickets = Ticket.objects.all().order_by('-created_at')
+        else:
+            tickets = Ticket.objects.filter(empresa=request.user.empresa).order_by('-created_at')
+        serializer = TicketSerializer(tickets, many=True)
+
+        return Response(serializer.data)
+    
+class RHTicketListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if request.user.role != 'rh':
+            return Response(
+                {"error": "Acesso negado."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        tickets = Ticket.objects.filter(autor=request.user).order_by('-created_at')
+        serializer = TicketSerializer(tickets, many=True)
+
+        return Response(serializer.data)

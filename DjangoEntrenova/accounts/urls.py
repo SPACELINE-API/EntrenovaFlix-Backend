@@ -36,4 +36,10 @@ urlpatterns = [
     path('api/diagnosticos/<uuid:diagnostico_id>/', VerDiagnosticoView.as_view(), name='api_ver_diagnostico'),
     path('api/diagnosticos/<uuid:diagnostico_id>/pdf/', GerarChatPDFView.as_view(), name='api_gerar_chat_pdf'),
     path('dashwidgets', Dashwidgets.as_view(), name='dashwidgets'),
+
+    path('tickets/rh/create/', TicketCreateView.as_view(), name='ticket-rh-create'),
+    path('tickets/rh/list/', RHTicketListView.as_view(), name='ticket-rh-list'),
+    path('tickets/admin/list/', AdminTicketListView.as_view(), name='ticket-admin-list'),
+    path('tickets/admin/<uuid:pk>/', AdminTicketDetailView.as_view(), name='admin-ticket-detail'),
+    #path('tickets/colaboradores/list')
 ]
