@@ -13,6 +13,9 @@ from django.db.models import Count, F, Q
 import re
 from .models import Posts, Comentarios, Usuario, Empresa, Plans, DiagnosticoChat
 from .serializers import PostSerializer, ComentarioSerializer, UserSerializer, MyTokenObtainPairSerializer
+
+from .models import Posts, Comentarios, Usuario, Empresa, Plans
+from .serializers import PostSerializer, ComentarioSerializer, UserSerializer, EmpresaSerializer, MyTokenObtainPairSerializer
 from django.http import HttpResponse
 from django.template.loader import render_to_string
 from xhtml2pdf import pisa
@@ -171,6 +174,69 @@ class CpfView(APIView):
         exists = Usuario.objects.filter(cpf=cpf_limpo).exists()
         return Response({"exists": exists}, status=status.HTTP_200_OK)
     
+   
+class EmpresaListView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        empresas = Empresa.objects.select_related('plano').all().order_by('nome')
+        serializer = EmpresaSerializer(empresas, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+class EmpresaDetailView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get_obj(self, cnpj: str):
+        try:
+            return Empresa.objects.get(cnpj=cnpj)
+        except Empresa.DoesNotExist:
+            return None
+    
+    def get(self, request, cnpj: str):
+        empresa = self.get_obj(cnpj)
+        if not empresa:
+            return Response({"error": "Empresa não encontrada."}, status=status.HTTP_404_NOT_FOUND)
+        return Response(EmpresaSerializer(empresa).data, status=status.HTTP_200_OK)
+    
+    def patch(self, request, cnpj: str):
+        empresa = self.get_obj(cnpj)
+
+        if not empresa:
+            return Response({"error": "Empresa não encontrada."}, status=status.HTTP_404_NOT_FOUND)
+        
+        dados = request.data or {}
+
+        obrigatorios = ['nome', 'area', 'lead']
+        for campo in obrigatorios:
+            if campo in dados and (dados[campo] is None or str(dados[campo]).strip() == ''):
+                return Response({"error": "Dados inválidos", "details": {campo: "Campo obrigatório"}}, status=status.HTTP_400_BAD_REQUEST)
+            
+        serializer = EmpresaSerializer(instance=empresa, data=dados, partial=True)
+
+        if not serializer.is_valid():
+            return Response({"error": "Dados inválidos", "details": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Exception:
+            return Response({"error": "Erro interno ao atualizar empresa."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    def put(self, request, cnpj: str):
+        return self.patch(request, cnpj)
+    
+    def delete(self, request, cnpj: str):
+        empresa = self.get_obj(cnpj)
+
+        if not empresa:
+            return Response({"error": "Empresa não encontrada"}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            empresa.delete()
+            return Response({"message": "Empresa excluída com sucesso"}, status=status.HTTP_200_OK)
+        except Exception:
+            return Response({"error": "Erro interno ao excluir empresa"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class FuncionariosView(APIView):
     authentication_classes = [JWTAuthentication]
