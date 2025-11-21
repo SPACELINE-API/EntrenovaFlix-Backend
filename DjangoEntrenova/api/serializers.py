@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from accounts.serializers import UsuarioSimplesSerializer
-from .models import Ticket, TicketMensagem
+from .models import Ticket, TicketMensagem, aprimoramentoPessoal
 
 class TicketMensagemSerializer(serializers.ModelSerializer):
     autor = UsuarioSimplesSerializer(read_only=True)
@@ -26,3 +26,9 @@ class TicketSerializer(serializers.ModelSerializer):
             'created_at', 
             'mensagens' 
         ]  
+
+class AprimoramentoPessoalSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = aprimoramentoPessoal
+        fields = ['id', 'resultado', 'created_at'] 
+        read_only_fields = ['id', 'created_at']
