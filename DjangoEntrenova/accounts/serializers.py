@@ -74,6 +74,8 @@ class UserSerializer(serializers.ModelSerializer):
         empresa_nome_str = validated_data.pop('empresa', None)
         empresa_obj = None
 
+        role = validated_data.get('role', Usuario.ROLE_CLIENTE)
+
         if empresa_nome_str:
             empresa_obj, created = Empresa.objects.get_or_create(nome=empresa_nome_str)
         user = Usuario.objects.create_user(
@@ -87,6 +89,12 @@ class UserSerializer(serializers.ModelSerializer):
             empresa=empresa_obj,
             role=validated_data.get('role', Usuario.ROLE_CLIENTE)
         )
+
+        if role == "admin":
+            user.is_staff = True
+            user.is_superuser = True
+            user.save()
+
         return user
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):

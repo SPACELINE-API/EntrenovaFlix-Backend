@@ -5,6 +5,9 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.db import IntegrityError, transaction
+from django.utils import timezone
+from datetime import timedelta
+from django.db.models import Count, F, Q
 import re
 from .models import Posts, Comentarios, Usuario, Empresa, Plans, DiagnosticoChat
 from .serializers import PostSerializer, ComentarioSerializer, UserSerializer, MyTokenObtainPairSerializer
@@ -427,3 +430,118 @@ class GerarChatPDFView(APIView):
             return HttpResponse("Erro ao gerar o PDF")
         
         return response
+    
+def get_mock_engagement_finance_data():
+    return {
+
+        "totalTrilhasCriadas": 85,
+        "trilhasMaisAcessadas": [
+            {"nome": "Liderança 101", "acessos": 1200},
+            {"nome": "Comunicação Efetiva", "acessos": 950},
+            {"nome": "Gestão de Tempo", "acessos": 700},
+        ],
+        "topHobbies": [
+            {"nome": "Leitura", "usuarios": 300},
+            {"nome": "Esportes", "usuarios": 250},
+            {"nome": "Música", "usuarios": 150},
+            {"nome": "Gastronomia", "usuarios": 100},
+        ],
+        "engajamentoVsCrescimento": [
+            ["Jan", 60, 100],
+            ["Fev", 65, 120],
+            ["Mar", 70, 150],
+            ["Abr", 75, 200],
+        ],
+
+        "topDimensoes": [
+            {"nome": "Comunicação", "trabalhadas": 500},
+            {"nome": "Autoconhecimento", "trabalhadas": 450},
+            {"nome": "Liderança", "trabalhadas": 400},
+        ],
+        
+        "revenueTotal": 120500.75,
+        "historicoTransacoes": [
+            {"id": "t1", "empresa": "Empresa A", "valor": 500, "data": "2025-11-14", "plano": "Premium", "metodo": "Cartão"},
+            {"id": "t2", "empresa": "Empresa B", "valor": 750, "data": "2025-11-13", "plano": "Basic", "metodo": "Boleto"},
+            {"id": "t3", "empresa": "Empresa C", "valor": 500, "data": "2025-11-12", "plano": "Standard", "metodo": "Pix"},
+        ]
+    }
+def get_mock_engagement_finance_data():
+    return {
+
+        "totalTrilhasCriadas": 85,
+        "trilhasMaisAcessadas": [
+            {"nome": "Liderança 101", "acessos": 1200},
+            {"nome": "Comunicação Efetiva", "acessos": 950},
+            {"nome": "Gestão de Tempo", "acessos": 700},
+        ],
+        "topHobbies": [
+            {"nome": "Leitura", "usuarios": 300},
+            {"nome": "Esportes", "usuarios": 250},
+            {"nome": "Música", "usuarios": 150},
+            {"nome": "Gastronomia", "usuarios": 100},
+        ],
+        "engajamentoVsCrescimento": [
+            ["Jan", 60, 100],
+            ["Fev", 65, 120],
+            ["Mar", 70, 150],
+            ["Abr", 75, 200],
+        ],
+
+        "topDimensoes": [
+            {"nome": "Comunicação", "trabalhadas": 500},
+            {"nome": "Autoconhecimento", "trabalhadas": 450},
+            {"nome": "Liderança", "trabalhadas": 400},
+        ],
+        
+        "revenueTotal": 12500.,
+        "historicoTransacoes": [
+            {"id": "t1", "empresa": "Empresa A", "valor": 1390.90, "data": "2025-11-14", "plano": "Diamante", "metodo": "Cartão"},
+            {"id": "t2", "empresa": "Empresa B", "valor": 990.90, "data": "2025-11-13", "plano": "Premium", "metodo": "Boleto"},
+            {"id": "t3", "empresa": "Empresa C", "valor": 590.90, "data": "2025-11-12", "plano": "Essencial", "metodo": "Pix"},
+        ]
+    }
+
+    
+class Dashwidgets(APIView):
+
+
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if not request.user.is_staff:
+             return Response({"error": "Acesso não autorizado."}, status=status.HTTP_403_FORBIDDEN)
+        
+        seven_days_ago = timezone.now() - timedelta(days=7)
+        one_day_ago = timezone.now() - timedelta(days=1)
+
+        user_metrics = Usuario.objects.aggregate(
+
+            totalUsuarios=Count('id'),
+            
+            usuariosAtivos=Count('id', filter=Q(last_login__gte=seven_days_ago)),
+            
+            novosInscritos=Count('id', filter=Q(date_joined__gte=one_day_ago))
+        )
+        business_metrics = Empresa.objects.filter(status_pagamento='aprovado').aggregate(
+            totalEmpresas=Count('id')
+        )
+        
+        planos_mais_assinados = Empresa.objects.filter(status_pagamento='aprovado') \
+                                    .values(plano_nome=F('plano__nome')) \
+                                    .annotate(assinantes=Count('id')) \
+                                    .order_by('-assinantes')
+        
+        mock_data = get_mock_engagement_finance_data()
+
+        response_data = {
+            "totalUsuarios": user_metrics['totalUsuarios'],
+            "usuariosAtivos": user_metrics['usuariosAtivos'],
+            "novosInscritos": user_metrics['novosInscritos'],
+            "totalEmpresas": business_metrics['totalEmpresas'],
+            "planosMaisAssinados": list(planos_mais_assinados),
+            **mock_data
+        }
+        
+        return Response(response_data, status=status.HTTP_200_OK)
