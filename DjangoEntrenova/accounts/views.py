@@ -4,6 +4,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.exceptions import NotFound
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.db import IntegrityError, transaction
 from django.utils import timezone
@@ -64,11 +65,22 @@ class ComentarioListCreateView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         post_id = self.kwargs.get('post_id')
+        resposta_a_id = self.request.data.get('resposta_a')
+
         try:
             post = Posts.objects.get(id=post_id)
-            serializer.save(usuario=self.request.user, post=post)
         except Posts.DoesNotExist:
-            pass
+            raise NotFound("Post não encontrado.")
+
+        resposta_a = None
+        if resposta_a_id:
+            resposta_a = Comentarios.objects.filter(id=resposta_a_id).first()
+
+        serializer.save(
+            usuario=self.request.user,
+            post=post,
+            resposta_a=resposta_a
+        )
 
 class EmpresaRegistrationView(APIView):
     permission_classes = [AllowAny]
@@ -592,6 +604,21 @@ class AdminTicketDetailView(APIView):
                 "error": "Erro ao salvar a resposta. A operação foi revertida.",
                 "detalhe": str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+    def delete(self, request, pk):
+        ticket = self.get_object(request, pk)
+        
+        try:
+            ticket.delete()
+            return Response(
+                {"message": "Ticket excluído com sucesso."}, 
+                status=status.HTTP_204_NO_CONTENT
+            )
+        except Exception as e:
+            return Response(
+                {"error": "Erro ao excluir ticket.", "detalhe": str(e)}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
         
 class colaboradoresView(APIView):
     permission_classes = [IsAuthenticated]

@@ -3,17 +3,17 @@ from accounts.serializers import UsuarioSimplesSerializer
 from .models import Ticket, TicketMensagem
 
 class TicketMensagemSerializer(serializers.ModelSerializer):
-    autor = UsuarioSimplesSerializer(read_only=True)
+    autor_nome = serializers.ReadOnlyField(source='autor.nome')
 
     class Meta:
         model = TicketMensagem
-        fields = ['id', 'autor', 'texto', 'created_at']
+        fields = ['id', 'autor_nome', 'texto', 'created_at']
 
 
 class TicketSerializer(serializers.ModelSerializer):
     mensagens = TicketMensagemSerializer(many=True, read_only=True)
-    autor = UsuarioSimplesSerializer(read_only=True)
-    empresa = serializers.StringRelatedField(read_only=True)
+    autor_nome = serializers.ReadOnlyField(source='autor.nome')
+    empresa_nome = serializers.ReadOnlyField(source='empresa.nome')
 
     class Meta:
         model = Ticket
@@ -24,5 +24,7 @@ class TicketSerializer(serializers.ModelSerializer):
             'empresa', 
             'status', 
             'created_at', 
-            'mensagens' 
+            'mensagens' ,
+            'autor_nome', 
+            'empresa_nome'
         ]  

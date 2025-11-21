@@ -148,7 +148,7 @@ class Comentarios(models.Model):
     post = models.ForeignKey(Posts, on_delete=models.CASCADE)
     conteudo = models.TextField()
     data_criacao = models.DateTimeField(blank=True, null=True)
-    resposta_a = models.ForeignKey('self', on_delete=models.CASCADE, db_column='resposta_a', blank=True, null=True)
+    resposta_a = models.ForeignKey('self', on_delete=models.CASCADE, db_column='resposta_a', related_name='respostas', blank=True, null=True)
 
     class Meta:
         managed = True

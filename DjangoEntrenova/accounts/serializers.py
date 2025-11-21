@@ -16,24 +16,21 @@ class UsuarioSimplesSerializer(serializers.ModelSerializer):
 
 class ComentarioSerializer(serializers.ModelSerializer):
     usuario = UsuarioSimplesSerializer(read_only=True)
+    respostas = serializers.SerializerMethodField()
 
     class Meta:
         model = Comentarios
-        fields = ['id', 'conteudo', 'data_criacao', 'usuario', 'post', 'resposta_a']
+        fields = ['id', 'conteudo', 'data_criacao', 'usuario', 'post', 'resposta_a', 'respostas']
         read_only_fields = ['usuario', 'post', 'data_criacao']
+
+    def get_respostas(self, obj):
+        replies = obj.respostas.all().order_by('data_criacao')
+        return ComentarioSerializer(replies, many=True).data
 
     def create(self, validated_data):
         validated_data['data_criacao'] = timezone.now()
         return super().create(validated_data)
-    
-    def perform_create(self, serializer):
-        post_id = self.kwargs.get('post_id')
-        try:
-            post = Posts.objects.get(id=post_id)
-        except Posts.DoesNotExist:
-            raise NotFound("Post não encontrado.")
-    
-        serializer.save(usuario=self.request.user, post=post)
+
 
 class PostSerializer(serializers.ModelSerializer):
     usuario = UsuarioSimplesSerializer(read_only=True)

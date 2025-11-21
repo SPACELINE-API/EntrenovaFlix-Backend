@@ -489,6 +489,7 @@ class AdminTicketListView(APIView):
 
         return Response(serializer.data)
     
+    
 class RHTicketListView(APIView):
     permission_classes = [IsAuthenticated]
 
