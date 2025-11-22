@@ -63,6 +63,9 @@ class Empresa(models.Model):
     is_active = models.BooleanField(default=True)
     lead = models.IntegerField(default=0)
 
+    def total_usuarios(self):
+        return self.usuarios.filter(is_active=True).count()
+
     def __str__(self):
 
         return self.nome
@@ -94,6 +97,7 @@ class Usuario(AbstractBaseUser, PermissionsMixin):
     is_superuser = models.BooleanField(default=False)
     is_staff = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
+    date_joined = models.DateTimeField(auto_now_add=True)
     email = models.EmailField(unique=True) 
     nome = models.CharField(max_length=150) 
     sobrenome = models.CharField(max_length=150, null=True, blank = True )
@@ -209,6 +213,25 @@ class DiagnosticoChat(models.Model):
 
     def __str__(self):
         return f"Diagnóstico de {self.tipo_trilha} para {self.user.email}"
+
+class Conteudo(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    titulo = models.CharField(max_length=255)
+    descricao = models.TextField()
+    softSkills = models.JSONField(db_column='soft_skills', default=list) 
+    tipo = models.CharField(max_length=50, default='Trilha')
+    link = models.URLField(max_length=2000, null=True, blank=True)
+    created_at = models.DateTimeField(db_column='criado_em', auto_now_add=True)
+    updated_at = models.DateTimeField(db_column='atualizado_em', auto_now=True)
+    autor = models.ForeignKey('Usuario', on_delete=models.SET_NULL, null=True, db_column='autor_id') 
+    
+    class Meta:
+        db_table = 'api_conteudo' 
+        managed = False          
+    def __str__(self):
+        return self.titulo
+    
+
 
 
 

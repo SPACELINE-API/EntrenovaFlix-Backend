@@ -1,7 +1,7 @@
 # accounts/serializers.py
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework import serializers
-from .models import Usuario, Posts, Comentarios, Empresa
+from .models import Usuario, Posts, Comentarios, Empresa, Conteudo
 from rest_framework.validators import UniqueValidator
 from rest_framework.generics import ListCreateAPIView
 from django.utils import timezone
@@ -74,6 +74,8 @@ class UserSerializer(serializers.ModelSerializer):
         empresa_nome_str = validated_data.pop('empresa', None)
         empresa_obj = None
 
+        role = validated_data.get('role', Usuario.ROLE_CLIENTE)
+
         if empresa_nome_str:
             empresa_obj, created = Empresa.objects.get_or_create(nome=empresa_nome_str)
         user = Usuario.objects.create_user(
@@ -87,6 +89,12 @@ class UserSerializer(serializers.ModelSerializer):
             empresa=empresa_obj,
             role=validated_data.get('role', Usuario.ROLE_CLIENTE)
         )
+
+        if role == "admin":
+            user.is_staff = True
+            user.is_superuser = True
+            user.save()
+
         return user
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -110,3 +118,34 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         data['nome'] = self.user.nome
         
         return data
+class EmpresaSerializer(serializers.ModelSerializer):
+    total_usuarios = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Empresa
+        fields = [
+            'cnpj',
+            'id',
+            'nome',
+            'area',
+            'plano',
+            'lead',
+            'is_active',
+            'status_pagamento',
+            'created_at',
+            'total_usuarios',
+        ]
+    
+    def get_total_usuarios(self, obj):
+        return obj.total_usuarios()
+
+class ConteudoSerializer(serializers.ModelSerializer):
+    softSkills = serializers.ListField(child=serializers.CharField(), required=True) 
+    class Meta:
+        model = Conteudo
+        fields = ['id', 'titulo', 'descricao', 'tipo', 'softSkills', 'link', 'created_at', 'updated_at'] 
+        read_only_fields = ['id', 'created_at']     
+    def validate_softSkills(self, value):
+        if not value:
+            raise serializers.ValidationError("Pelo menos uma Soft Skill deve ser selecionada.")
+        return value

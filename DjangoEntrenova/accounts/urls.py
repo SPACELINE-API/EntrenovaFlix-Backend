@@ -5,12 +5,23 @@ from .serializers import MyTokenObtainPairSerializer
 from .views import RegisterView, MeuViewSet
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from .views import (
-    RegisterView, PostListCreateView, PostDetailView, ComentarioListCreateView, FuncionariosView, EmpresaRegistrationView, CnpjView, CpfView, PrimeiroLoginView, GerarPDFView, SalvarDiagnosticoView, VerDiagnosticoView, ListarDiagnosticosView, GerarChatPDFView)
+    RegisterView, PostListCreateView, PostDetailView, ComentarioListCreateView, FuncionariosView, EmpresaRegistrationView, EmpresaDetailView, EmpresaListView, EmpresaDiagnosticoView, CnpjView, CpfView, PrimeiroLoginView, GerarPDFView, SalvarDiagnosticoView, VerDiagnosticoView, ListarDiagnosticosView, GerarChatPDFView, Dashwidgets, aprimoramentoPessoal, ConteudoDetailView, ConteudoListCreateView)
+from api.views import (
+    AdminTicketListView,
+    TicketCreateView,
+    RHTicketListView,
+)
+
+from accounts.views import AdminTicketDetailView
+
 
 urlpatterns = [
     path('funcionarios', FuncionariosView.as_view(), name='funcionarios'),
     path('register', RegisterView.as_view(), name='register'),
     path('register-empresa', EmpresaRegistrationView.as_view(), name='register_empresa_rh'),
+    path('empresas', EmpresaListView.as_view(), name='empresa-list'),
+    path('empresas/<str:cnpj>', EmpresaDetailView.as_view(), name='empresa-detail'),
+    path('empresa/<str:cnpj>/diagnostico', EmpresaDiagnosticoView.as_view(), name='empresa-diagnostico'),
     path('primeiro-login', PrimeiroLoginView.as_view(), name='primeiro-login'),
     path('login', TokenObtainPairView.as_view(serializer_class=MyTokenObtainPairSerializer), name='token_obtain_pair'),
     path('login/refresh', TokenRefreshView.as_view(), name='token_refresh'),
@@ -25,4 +36,14 @@ urlpatterns = [
     path('api/diagnosticos/listar/', ListarDiagnosticosView.as_view(), name='api_listar_diagnosticos'),
     path('api/diagnosticos/<uuid:diagnostico_id>/', VerDiagnosticoView.as_view(), name='api_ver_diagnostico'),
     path('api/diagnosticos/<uuid:diagnostico_id>/pdf/', GerarChatPDFView.as_view(), name='api_gerar_chat_pdf'),
+    path('dashwidgets', Dashwidgets.as_view(), name='dashwidgets'),
+    path('aprimoramento-pessoal', aprimoramentoPessoal.as_view(), name='aprimoramento-pessoal'),
+
+    path('tickets/rh/create/', TicketCreateView.as_view(), name='ticket-rh-create'),
+    path('tickets/rh/list/', RHTicketListView.as_view(), name='ticket-rh-list'),
+    path('tickets/admin/list/', AdminTicketListView.as_view(), name='ticket-admin-list'),
+    path('tickets/admin/<uuid:pk>/', AdminTicketDetailView.as_view(), name='admin-ticket-detail'),
+    #path('tickets/colaboradores/list')
+    path('conteudos/', ConteudoListCreateView.as_view(), name='conteudos-list-create'), 
+    path('conteudos/<uuid:pk>/', ConteudoDetailView.as_view(), name='conteudos-detail'),
 ]
