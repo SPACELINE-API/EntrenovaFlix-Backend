@@ -11,11 +11,9 @@ from django.utils import timezone
 from datetime import timedelta
 from django.db.models import Count, F, Q
 import re
-from .models import Posts, Comentarios, Usuario, Empresa, Plans, DiagnosticoChat
-from .serializers import PostSerializer, ComentarioSerializer, UserSerializer, MyTokenObtainPairSerializer
+from .models import Posts, Comentarios, Usuario, Empresa, Plans, DiagnosticoChat, Conteudo
 
-from .models import Posts, Comentarios, Usuario, Empresa, Plans
-from .serializers import PostSerializer, ComentarioSerializer, UserSerializer, EmpresaSerializer, MyTokenObtainPairSerializer
+from .serializers import PostSerializer, ComentarioSerializer, UserSerializer,EmpresaSerializer, MyTokenObtainPairSerializer, ConteudoSerializer
 from django.http import HttpResponse
 from django.template.loader import render_to_string
 from xhtml2pdf import pisa
@@ -712,4 +710,18 @@ class aprimoramentoPessoal(APIView):
                             status=status.HTTP_201_CREATED)
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        
+
+class ConteudoListCreateView(generics.ListCreateAPIView):
+    queryset = Conteudo.objects.all().order_by('-created_at')
+    serializer_class = ConteudoSerializer
+    permission_classes = [IsAuthenticated] 
+    def perform_create(self, serializer):
+        serializer.save(autor=self.request.user) 
+
+class ConteudoDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Conteudo.objects.all()
+    serializer_class = ConteudoSerializer
+    permission_classes = [IsAuthenticated] 
+    lookup_field = 'pk'
+
+

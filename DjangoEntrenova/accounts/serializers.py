@@ -1,7 +1,7 @@
 # accounts/serializers.py
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework import serializers
-from .models import Usuario, Posts, Comentarios, Empresa
+from .models import Usuario, Posts, Comentarios, Empresa, Conteudo
 from rest_framework.validators import UniqueValidator
 from rest_framework.generics import ListCreateAPIView
 from django.utils import timezone
@@ -139,3 +139,13 @@ class EmpresaSerializer(serializers.ModelSerializer):
     def get_total_usuarios(self, obj):
         return obj.total_usuarios()
 
+class ConteudoSerializer(serializers.ModelSerializer):
+    softSkills = serializers.ListField(child=serializers.CharField(), required=True) 
+    class Meta:
+        model = Conteudo
+        fields = ['id', 'titulo', 'descricao', 'tipo', 'softSkills', 'link', 'created_at', 'updated_at'] 
+        read_only_fields = ['id', 'created_at']     
+    def validate_softSkills(self, value):
+        if not value:
+            raise serializers.ValidationError("Pelo menos uma Soft Skill deve ser selecionada.")
+        return value

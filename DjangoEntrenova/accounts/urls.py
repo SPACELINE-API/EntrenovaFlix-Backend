@@ -5,7 +5,7 @@ from .serializers import MyTokenObtainPairSerializer
 from .views import RegisterView, MeuViewSet
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from .views import (
-    RegisterView, PostListCreateView, PostDetailView, ComentarioListCreateView, FuncionariosView, EmpresaRegistrationView, EmpresaDetailView, EmpresaListView, EmpresaDiagnosticoView, ,CnpjView, CpfView, PrimeiroLoginView, GerarPDFView, SalvarDiagnosticoView, VerDiagnosticoView, ListarDiagnosticosView, GerarChatPDFView, Dashwidgets, aprimoramentoPessoal)
+    RegisterView, PostListCreateView, PostDetailView, ComentarioListCreateView, FuncionariosView, EmpresaRegistrationView, EmpresaDetailView, EmpresaListView, EmpresaDiagnosticoView, CnpjView, CpfView, PrimeiroLoginView, GerarPDFView, SalvarDiagnosticoView, VerDiagnosticoView, ListarDiagnosticosView, GerarChatPDFView, Dashwidgets, aprimoramentoPessoal, ConteudoDetailView, ConteudoListCreateView)
 from api.views import (
     AdminTicketListView,
     TicketCreateView,
@@ -44,4 +44,6 @@ urlpatterns = [
     path('tickets/admin/list/', AdminTicketListView.as_view(), name='ticket-admin-list'),
     path('tickets/admin/<uuid:pk>/', AdminTicketDetailView.as_view(), name='admin-ticket-detail'),
     #path('tickets/colaboradores/list')
+    path('conteudos/', ConteudoListCreateView.as_view(), name='conteudos-list-create'), 
+    path('conteudos/<uuid:pk>/', ConteudoDetailView.as_view(), name='conteudos-detail'),
 ]
