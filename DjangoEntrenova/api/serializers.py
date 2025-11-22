@@ -2,6 +2,7 @@ from rest_framework import serializers
 from accounts.serializers import UsuarioSimplesSerializer
 from .models import Ticket, TicketMensagem
 
+
 class TicketMensagemSerializer(serializers.ModelSerializer):
     autor_nome = serializers.ReadOnlyField(source='autor.nome')
 
@@ -10,10 +11,13 @@ class TicketMensagemSerializer(serializers.ModelSerializer):
         fields = ['id', 'autor_nome', 'texto', 'created_at']
 
 
-class TicketSerializer(serializers.ModelSerializer):
+class TicketSerializer1(serializers.ModelSerializer):
     mensagens = TicketMensagemSerializer(many=True, read_only=True)
     autor_nome = serializers.ReadOnlyField(source='autor.nome')
     empresa_nome = serializers.ReadOnlyField(source='empresa.nome')
+
+    # ➜ Campo novo
+    encaminhado = serializers.SerializerMethodField()
 
     class Meta:
         model = Ticket
@@ -24,7 +28,12 @@ class TicketSerializer(serializers.ModelSerializer):
             'empresa', 
             'status', 
             'created_at', 
-            'mensagens' ,
+            'mensagens',
             'autor_nome', 
-            'empresa_nome'
-        ]  
+            'empresa_nome',
+            'encaminhado',      
+        ]
+
+    def get_encaminhado(self, obj):
+        
+        return obj.autor_nome == "RH"

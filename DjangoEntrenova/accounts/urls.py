@@ -6,7 +6,7 @@ from .views import RegisterView, MeuViewSet
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from .views import (
     RegisterView, PostListCreateView, PostDetailView, ComentarioListCreateView, FuncionariosView, EmpresaRegistrationView, CnpjView, CpfView, PrimeiroLoginView, GerarPDFView, SalvarDiagnosticoView, VerDiagnosticoView, ListarDiagnosticosView, GerarChatPDFView, Dashwidgets, CnpjView, CpfView,
-    SalvarDiagnosticoView, ListarDiagnosticosView, VerDiagnosticoView, EmpresaListView, EmpresaDetailView)
+    SalvarDiagnosticoView, ListarDiagnosticosView, VerDiagnosticoView, EmpresaListView, EmpresaDetailView, TicketsColaboradoresView, CriarTicketView, fechar_ticket)
 from api.views import (
     AdminTicketListView,
     TicketCreateView,
@@ -40,5 +40,7 @@ urlpatterns = [
     path('tickets/rh/list/', RHTicketListView.as_view(), name='ticket-rh-list'),
     path('tickets/admin/list/', AdminTicketListView.as_view(), name='ticket-admin-list'),
     path('tickets/admin/<uuid:pk>/', AdminTicketDetailView.as_view(), name='admin-ticket-detail'),
-    #path('tickets/colaboradores/list')
+    path('criar-ticket', CriarTicketView.as_view(), name='criar-ticket'),
+    path('visualizar-ticket', TicketsColaboradoresView.as_view(), name='visualizar-ticket'),
+    path("tickets/<uuid:pk>/fechar/", fechar_ticket, name="fechar_ticket"),
 ]

@@ -1,6 +1,7 @@
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, status
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
@@ -14,12 +15,12 @@ import re
 from .models import Posts, Comentarios, Usuario, Empresa, Plans, DiagnosticoChat
 from .serializers import PostSerializer, ComentarioSerializer, UserSerializer, MyTokenObtainPairSerializer
 
-from .models import Posts, Comentarios, Usuario, Empresa, Plans
-from .serializers import PostSerializer, ComentarioSerializer, UserSerializer, EmpresaSerializer, MyTokenObtainPairSerializer
+from .models import Posts, Comentarios, Usuario, Empresa, Plans, TicketColabs
+from .serializers import PostSerializer, ComentarioSerializer, UserSerializer, EmpresaSerializer, MyTokenObtainPairSerializer, TicketSerializer
 from django.http import HttpResponse
 from django.template.loader import render_to_string
 from xhtml2pdf import pisa
-from api.serializers import TicketMensagemSerializer, TicketSerializer,TicketMensagem, Ticket
+from api.serializers import TicketMensagemSerializer, TicketSerializer1,TicketMensagem, Ticket
 
 class RegisterView(generics.CreateAPIView):
     queryset = Usuario.objects.all()
@@ -618,77 +619,142 @@ class Dashwidgets(APIView):
         }
         
         return Response(response_data, status=status.HTTP_200_OK)
+
+
+class TicketsColaboradoresView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        tickets = TicketColabs.objects.filter(usuario=request.user).order_by("-criado_em")
+        serializer = TicketSerializer(tickets, many=True)
+        
+        return Response(serializer.data, status=200)
     
 class AdminTicketDetailView(APIView):
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated] 
+    permission_classes = [IsAuthenticated]
 
-    def get_object(self, request, pk):
-        is_admin_role = False
-        try:
-            if request.user.role == Usuario.ROLE_ADMIN:
-                is_admin_role = True
-        except AttributeError:
-            pass
+    def get_ticket(self, request, pk):
 
-        if request.user.is_superuser or is_admin_role:
+        user_is_admin = (
+            request.user.is_superuser or 
+            getattr(request.user, "role", None) == Usuario.ROLE_ADMIN
+        )
+
+        if user_is_admin:
             return get_object_or_404(Ticket, id=pk)
-        else:
-            return get_object_or_404(Ticket, id=pk, empresa=request.user.empresa)
+
+        return get_object_or_404(
+            Ticket,
+            id=pk,
+            empresa=request.user.empresa
+        )
 
     def get(self, request, pk):
-        ticket = self.get_object(request, pk)
-        serializer = TicketSerializer(ticket)
-        return Response(serializer.data)
+        ticket = self.get_ticket(request, pk)
+        serializer = TicketSerializer1(ticket)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request, pk):
-        ticket = self.get_object(request, pk)
-        texto_resposta = request.data.get('texto')
+        
+        ticket = self.get_ticket(request, pk)
+        texto = request.data.get("texto")
 
-        if not texto_resposta:
-            return Response({"error": "O texto da resposta é obrigatório."}, status=status.HTTP_400_BAD_REQUEST)
+        if not texto:
+            return Response(
+                {"error": "O texto da resposta é obrigatório."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-        if ticket.status == 'Fechado':
-            return Response({"error": "Este ticket já está fechado."}, status=status.HTTP_400_BAD_REQUEST)
+        if ticket.status == "Fechado":
+            return Response(
+                {"error": "Este ticket já está fechado."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         try:
             with transaction.atomic():
-                nova_mensagem = TicketMensagem.objects.create(
+                mensagem = TicketMensagem.objects.create(
                     ticket=ticket,
-                    autor=request.user, 
-                    texto=texto_resposta
+                    autor=request.user,
+                    texto=texto
                 )
-                
-                ticket.status = 'Fechado'
-                ticket.save(update_fields=['status'])
-            
-            serializer = TicketMensagemSerializer(nova_mensagem)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        
+
+            return Response(
+                TicketMensagemSerializer(mensagem).data,
+                status=status.HTTP_201_CREATED
+            )
+
         except Exception as e:
-            return Response({
-                "error": "Erro ao salvar a resposta. A operação foi revertida.",
-                "detalhe": str(e)
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
+            return Response(
+                {"error": "Erro ao salvar a resposta.", "detalhe": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
     def delete(self, request, pk):
-        ticket = self.get_object(request, pk)
-        
+        ticket = self.get_ticket(request, pk)
+
         try:
             ticket.delete()
             return Response(
-                {"message": "Ticket excluído com sucesso."}, 
+                {"message": "Ticket excluído com sucesso."},
                 status=status.HTTP_204_NO_CONTENT
             )
+
         except Exception as e:
             return Response(
-                {"error": "Erro ao excluir ticket.", "detalhe": str(e)}, 
+                {"error": "Erro ao excluir ticket.", "detalhe": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
         
 class colaboradoresView(APIView):
     permission_classes = [IsAuthenticated]
     def get(self, request, pk):
-        ticket = self.get_object(request, pk)
-        serializer = TicketSerializer(ticket)
-        return Response("Sem implementação de código")
+        tickets = TicketColabs.objects.filter(usuario=request.user).order_by("-criado_em")
+        serializer = TicketSerializer1(tickets, many=True)
+        
+        return Response(serializer.data, status=200)
+    
+class CriarTicketView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        titulo = request.data.get("titulo")
+        descricao = request.data.get("descricao")
+        categoria = request.data.get("categoria")
+
+        if not all([titulo, descricao, categoria]):
+            return Response({"error": "Todos os campos são obrigatórios."}, status=400)
+
+        ticket = TicketColabs.objects.create(
+            usuario=request.user,
+            titulo=titulo,
+            descricao=descricao,
+            categoria=categoria,
+            status="aberto",
+        )
+
+        return Response(TicketSerializer(ticket).data, status=201)
+    
+@api_view(["PATCH"])
+@permission_classes([IsAdminUser])
+def fechar_ticket(request, pk):
+    ticket = get_object_or_404(TicketColabs, pk=pk)
+
+    if ticket.status == "Fechado":
+        return Response({"erro": "Este ticket já está fechado."}, status=400)
+
+    with transaction.atomic():
+        ticket.status = "Fechado"
+        ticket.save(update_fields=["status"])
+
+        TicketMensagem.objects.create(
+            ticket=ticket,
+            autor=request.user,
+            texto="Ticket fechado pelo administrador."
+        )
+
+    return Response({"status": "Ticket fechado com sucesso!"}, status=200)
+
