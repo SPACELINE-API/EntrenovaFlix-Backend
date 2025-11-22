@@ -16,11 +16,11 @@ from .models import Posts, Comentarios, Usuario, Empresa, Plans, DiagnosticoChat
 from .serializers import PostSerializer, ComentarioSerializer, UserSerializer, MyTokenObtainPairSerializer
 
 from .models import Posts, Comentarios, Usuario, Empresa, Plans, TicketColabs
-from .serializers import PostSerializer, ComentarioSerializer, UserSerializer, EmpresaSerializer, MyTokenObtainPairSerializer, TicketSerializer
+from .serializers import PostSerializer, ComentarioSerializer, UserSerializer, EmpresaSerializer, MyTokenObtainPairSerializer, TicketColabSerializer
 from django.http import HttpResponse
 from django.template.loader import render_to_string
 from xhtml2pdf import pisa
-from api.serializers import TicketMensagemSerializer, TicketSerializer1,TicketMensagem, Ticket
+from api.serializers import TicketMensagemSerializer, TicketSerializer,TicketMensagem, Ticket
 
 class RegisterView(generics.CreateAPIView):
     queryset = Usuario.objects.all()
@@ -627,9 +627,29 @@ class TicketsColaboradoresView(APIView):
 
     def get(self, request):
         tickets = TicketColabs.objects.filter(usuario=request.user).order_by("-criado_em")
-        serializer = TicketSerializer(tickets, many=True)
+        serializer = TicketColabSerializer(tickets, many=True)
         
         return Response(serializer.data, status=200)
+    
+class RHColabTicketsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # Verifica se é RH
+        if request.user.role != 'rh':
+            return Response({"error": "Acesso negado."}, status=403)
+            
+        empresa_rh = request.user.empresa
+        if not empresa_rh:
+             return Response({"error": "RH sem empresa vinculada."}, status=400)
+
+        # Busca tickets de colaboradores DESSA empresa
+        tickets = TicketColabs.objects.filter(
+            usuario__empresa=empresa_rh
+        ).order_by('-criado_em')
+
+        serializer = TicketColabSerializer(tickets, many=True)
+        return Response(serializer.data)
     
 class AdminTicketDetailView(APIView):
     authentication_classes = [JWTAuthentication]
@@ -653,7 +673,7 @@ class AdminTicketDetailView(APIView):
 
     def get(self, request, pk):
         ticket = self.get_ticket(request, pk)
-        serializer = TicketSerializer1(ticket)
+        serializer = TicketSerializer(ticket)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request, pk):
@@ -712,7 +732,7 @@ class colaboradoresView(APIView):
     permission_classes = [IsAuthenticated]
     def get(self, request, pk):
         tickets = TicketColabs.objects.filter(usuario=request.user).order_by("-criado_em")
-        serializer = TicketSerializer1(tickets, many=True)
+        serializer = TicketSerializer(tickets, many=True)
         
         return Response(serializer.data, status=200)
     
@@ -736,12 +756,12 @@ class CriarTicketView(APIView):
             status="aberto",
         )
 
-        return Response(TicketSerializer(ticket).data, status=201)
+        return Response(TicketColabSerializer(ticket).data, status=201)
     
 @api_view(["PATCH"])
 @permission_classes([IsAdminUser])
 def fechar_ticket(request, pk):
-    ticket = get_object_or_404(TicketColabs, pk=pk)
+    ticket = get_object_or_404(Ticket, pk=pk)
 
     if ticket.status == "Fechado":
         return Response({"erro": "Este ticket já está fechado."}, status=400)

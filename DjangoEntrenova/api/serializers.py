@@ -11,12 +11,10 @@ class TicketMensagemSerializer(serializers.ModelSerializer):
         fields = ['id', 'autor_nome', 'texto', 'created_at']
 
 
-class TicketSerializer1(serializers.ModelSerializer):
+class TicketSerializer(serializers.ModelSerializer):
     mensagens = TicketMensagemSerializer(many=True, read_only=True)
     autor_nome = serializers.ReadOnlyField(source='autor.nome')
     empresa_nome = serializers.ReadOnlyField(source='empresa.nome')
-
-    # ➜ Campo novo
     encaminhado = serializers.SerializerMethodField()
 
     class Meta:
@@ -36,4 +34,4 @@ class TicketSerializer1(serializers.ModelSerializer):
 
     def get_encaminhado(self, obj):
         
-        return obj.autor_nome == "RH"
+        return obj.autor == "RH"

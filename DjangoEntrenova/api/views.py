@@ -9,7 +9,7 @@ import json
 import re
 from rest_framework.permissions import IsAuthenticated 
 from .models import conteudoTrilha, TicketMensagem, Ticket
-from .serializers import TicketSerializer1
+from .serializers import TicketSerializer
 from django.db import transaction
 from toon_format import encode, decode, ToonDecodeError, DecodeOptions
 
@@ -470,7 +470,7 @@ class TicketCreateView(APIView):
         )
 
         return Response(
-            TicketSerializer1(ticket).data, 
+            TicketSerializer(ticket).data, 
             status=status.HTTP_201_CREATED
         )
 
@@ -484,7 +484,7 @@ class AdminTicketListView(APIView):
             tickets = Ticket.objects.all().order_by('-created_at')
         else:
             tickets = Ticket.objects.filter(empresa=request.user.empresa).order_by('-created_at')
-        serializer = TicketSerializer1(tickets, many=True)
+        serializer = TicketSerializer(tickets, many=True)
 
         return Response(serializer.data)
     
@@ -500,4 +500,4 @@ class RHTicketListView(APIView):
             empresa=request.user.empresa
         ).order_by('-created_at')
 
-        return Response(TicketSerializer1(tickets, many=True).data)
+        return Response(TicketSerializer(tickets, many=True).data)

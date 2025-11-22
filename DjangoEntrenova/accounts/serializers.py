@@ -143,7 +143,7 @@ class EmpresaSerializer(serializers.ModelSerializer):
     def get_total_usuarios(self, obj):
         return obj.total_usuarios()
     
-class TicketSerializer(serializers.ModelSerializer):
+class TicketColabSerializer(serializers.ModelSerializer):
 
     nome = serializers.CharField(source="usuario.nome", read_only=True)
     sobrenome = serializers.CharField(source="usuario.sobrenome", read_only=True)
