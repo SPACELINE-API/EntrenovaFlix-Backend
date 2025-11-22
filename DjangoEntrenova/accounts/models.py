@@ -97,6 +97,7 @@ class Usuario(AbstractBaseUser, PermissionsMixin):
     is_superuser = models.BooleanField(default=False)
     is_staff = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
+    date_joined = models.DateTimeField(auto_now_add=True)
     email = models.EmailField(unique=True) 
     nome = models.CharField(max_length=150) 
     sobrenome = models.CharField(max_length=150, null=True, blank = True )
@@ -212,6 +213,8 @@ class DiagnosticoChat(models.Model):
 
     def __str__(self):
         return f"Diagnóstico de {self.tipo_trilha} para {self.user.email}"
+    
+
 
 
 
