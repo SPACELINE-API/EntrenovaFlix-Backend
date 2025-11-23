@@ -1,7 +1,7 @@
 # accounts/serializers.py
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework import serializers
-from .models import Usuario, Posts, Comentarios, Empresa
+from .models import Usuario, Posts, Comentarios, Empresa, TicketColabs, Conteudo
 from rest_framework.validators import UniqueValidator
 from rest_framework.generics import ListCreateAPIView
 from django.utils import timezone
@@ -16,24 +16,21 @@ class UsuarioSimplesSerializer(serializers.ModelSerializer):
 
 class ComentarioSerializer(serializers.ModelSerializer):
     usuario = UsuarioSimplesSerializer(read_only=True)
+    respostas = serializers.SerializerMethodField()
 
     class Meta:
         model = Comentarios
-        fields = ['id', 'conteudo', 'data_criacao', 'usuario', 'post', 'resposta_a']
+        fields = ['id', 'conteudo', 'data_criacao', 'usuario', 'post', 'resposta_a', 'respostas']
         read_only_fields = ['usuario', 'post', 'data_criacao']
+
+    def get_respostas(self, obj):
+        replies = obj.respostas.all().order_by('data_criacao')
+        return ComentarioSerializer(replies, many=True).data
 
     def create(self, validated_data):
         validated_data['data_criacao'] = timezone.now()
         return super().create(validated_data)
-    
-    def perform_create(self, serializer):
-        post_id = self.kwargs.get('post_id')
-        try:
-            post = Posts.objects.get(id=post_id)
-        except Posts.DoesNotExist:
-            raise NotFound("Post não encontrado.")
-    
-        serializer.save(usuario=self.request.user, post=post)
+
 
 class PostSerializer(serializers.ModelSerializer):
     usuario = UsuarioSimplesSerializer(read_only=True)
@@ -118,5 +115,59 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         data['nome'] = self.user.nome
         
         return data
+    
+class EmpresaSerializer(serializers.ModelSerializer):
+    plano = serializers.SlugRelatedField(
+        read_only=True,
+        slug_field='nome',
+        allow_null=True,
+        required=False
+    )
+    total_usuarios = serializers.SerializerMethodField()
 
-  
+    class Meta:
+        model = Empresa
+        fields = [
+            'cnpj',
+            'id',
+            'nome',
+            'area',
+            'plano',
+            'lead',
+            'is_active',
+            'status_pagamento',
+            'created_at',
+            'total_usuarios',
+        ]
+    
+    def get_total_usuarios(self, obj):
+        return obj.total_usuarios()
+    
+class TicketColabSerializer(serializers.ModelSerializer):
+
+    nome = serializers.CharField(source="usuario.nome", read_only=True)
+    sobrenome = serializers.CharField(source="usuario.sobrenome", read_only=True)
+
+    class Meta:
+        model = TicketColabs
+        fields = [
+            "id",
+            "titulo",
+            "descricao",
+            "categoria",
+            "status",
+            "criado_em",
+            "nome",
+            "sobrenome"
+        ]
+
+class ConteudoSerializer(serializers.ModelSerializer):
+    softSkills = serializers.ListField(child=serializers.CharField(), required=True) 
+    class Meta:
+        model = Conteudo
+        fields = ['id', 'titulo', 'descricao', 'tipo', 'softSkills', 'link', 'created_at', 'updated_at'] 
+        read_only_fields = ['id', 'created_at']     
+    def validate_softSkills(self, value):
+        if not value:
+            raise serializers.ValidationError("Pelo menos uma Soft Skill deve ser selecionada.")
+        return value

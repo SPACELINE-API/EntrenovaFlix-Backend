@@ -27,7 +27,7 @@ class AprovarPagamentoView (APIView):
              return Response ({"error": f"Erro ao aprovar pagamento: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class ChatbotView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def _build_toon_catalog(self) -> str:
         try:
@@ -447,34 +447,33 @@ class TicketCreateView(APIView):
     @transaction.atomic
     def post(self, request):
         autor = request.user
-        assunto = request.data.get('assunto')
-        texto_mensagem = request.data.get('texto') 
+        assunto = request.data.get("assunto")
+        texto = request.data.get("texto")
 
-        if not assunto or not texto_mensagem:
+        if not assunto or not texto:
             return Response(
                 {"error": "Assunto e texto são obrigatórios."},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        try:
-            novo_ticket = Ticket.objects.create(
-                assunto=assunto,
-                autor=autor,
-                empresa=autor.empresa, 
-                status='Aberto'
-            )
+        ticket = Ticket.objects.create(
+            assunto=assunto,
+            autor=autor,
+            empresa=autor.empresa,
+            status="Aberto"
+        )
 
-            TicketMensagem.objects.create(
-                ticket=novo_ticket,
-                autor=autor,
-                texto=texto_mensagem
-            )
+        TicketMensagem.objects.create(
+            ticket=ticket,
+            autor=autor,
+            texto=texto
+        )
 
-            serializer = TicketSerializer(novo_ticket)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(
+            TicketSerializer(ticket).data, 
+            status=status.HTTP_201_CREATED
+        )
 
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class AdminTicketListView(APIView):
@@ -489,17 +488,16 @@ class AdminTicketListView(APIView):
 
         return Response(serializer.data)
     
+    
 class RHTicketListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        if request.user.role != 'rh':
-            return Response(
-                {"error": "Acesso negado."},
-                status=status.HTTP_403_FORBIDDEN
-            )
+        if request.user.role != "rh":
+            return Response({"error": "Acesso negado."}, status=403)
         
-        tickets = Ticket.objects.filter(autor=request.user).order_by('-created_at')
-        serializer = TicketSerializer(tickets, many=True)
+        tickets = Ticket.objects.filter(
+            empresa=request.user.empresa
+        ).order_by('-created_at')
 
-        return Response(serializer.data)
+        return Response(TicketSerializer(tickets, many=True).data)
