@@ -6,7 +6,7 @@ from .views import RegisterView, MeuViewSet
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from .views import (
     RegisterView, PostListCreateView, PostDetailView, ComentarioListCreateView, FuncionariosView, EmpresaRegistrationView, CnpjView, CpfView, PrimeiroLoginView, GerarPDFView, SalvarDiagnosticoView, VerDiagnosticoView, ListarDiagnosticosView, GerarChatPDFView, Dashwidgets, CnpjView, CpfView,
-    SalvarDiagnosticoView, ListarDiagnosticosView, VerDiagnosticoView, EmpresaListView, EmpresaDetailView, TicketsColaboradoresView, CriarTicketView, fechar_ticket, RHColabTicketsView, ActivePlanView, encaminhar_ticket_para_admin, aprimoramentoPessoal)
+    SalvarDiagnosticoView, ListarDiagnosticosView, VerDiagnosticoView, EmpresaListView, EmpresaDetailView, TicketsColaboradoresView, CriarTicketView, fechar_ticket, RHColabTicketsView, ActivePlanView, encaminhar_ticket_para_admin, aprimoramentoPessoal, ConteudoDetailView, ConteudoListCreateView)
 from api.views import (
     AdminTicketListView,
     TicketCreateView,
@@ -47,5 +47,7 @@ urlpatterns = [
     path('tickets/colaboradores/list/', TicketsColaboradoresView.as_view(), name='tickets-colab-list'),
     path('tickets/rh/colaboradores/', RHColabTicketsView.as_view(), name='rh-colab-tickets'),
     path('active-plan/', ActivePlanView.as_view(), name='active_plan'),
-    path('tickets/encaminhar/<uuid:ticket_id>/', encaminhar_ticket_para_admin, name='encaminhar-ticket')
+    path('tickets/encaminhar/<uuid:ticket_id>/', encaminhar_ticket_para_admin, name='encaminhar-ticket'),
+    path('conteudos/', ConteudoListCreateView.as_view(), name='conteudos-list-create'), 
+    path('conteudos/<uuid:pk>/', ConteudoDetailView.as_view(), name='conteudos-detail'),
 ]

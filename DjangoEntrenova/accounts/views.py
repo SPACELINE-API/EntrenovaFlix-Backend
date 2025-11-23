@@ -13,11 +13,10 @@ from django.utils import timezone
 from datetime import timedelta
 from django.db.models import Count, F, Q
 import re
-from .models import Posts, Comentarios, Usuario, Empresa, Plans, DiagnosticoChat
-from .serializers import PostSerializer, ComentarioSerializer, UserSerializer, MyTokenObtainPairSerializer
+from .models import Posts, Comentarios, Usuario, Empresa, Plans, DiagnosticoChat, Conteudo
 
 from .models import Posts, Comentarios, Usuario, Empresa, Plans, TicketColabs
-from .serializers import PostSerializer, ComentarioSerializer, UserSerializer, EmpresaSerializer, MyTokenObtainPairSerializer, TicketColabSerializer
+from .serializers import PostSerializer, ComentarioSerializer, UserSerializer, EmpresaSerializer, MyTokenObtainPairSerializer, TicketColabSerializer, ConteudoSerializer
 from django.http import HttpResponse
 from django.template.loader import render_to_string
 from xhtml2pdf import pisa
@@ -93,11 +92,15 @@ class EmpresaRegistrationView(APIView):
     @transaction.atomic
     def post(self, request):
         dados = request.data
+
+        lead_score = dados.get('leadScore')  
+
         dados_cadastro = dados.get('cadastro', {})
         dados_pagamento = dados.get('pagamento', {})
 
         if not dados_cadastro:
             return Response({"error": "Objeto 'cadastro' não encontrado no payload."}, status=status.HTTP_400_BAD_REQUEST)
+
         dados_solicitante = dados_cadastro.get('dadosSolicitante', {})
         dados_empresa = dados_cadastro.get('dadosEmpresa', {})
         dados_senha_obj = dados_cadastro.get('dadosSenha', {})
@@ -128,8 +131,10 @@ class EmpresaRegistrationView(APIView):
                 cnpj=cnpj,
                 nome=dados_empresa.get("razaoSocial"),
                 plano=plano_obj,
-                status_pagamento=status_pagamento
+                status_pagamento=status_pagamento,
+                lead=lead_score or 0  
             )
+
             usuario_rh = Usuario.objects.create_user(
                 email=dados_solicitante.get("emailCorporativo"),
                 password=senha,
@@ -150,14 +155,17 @@ class EmpresaRegistrationView(APIView):
             if 'cpf' in str(e).lower():
                 return Response({"error": "Este CPF já está cadastrado."}, status=status.HTTP_400_BAD_REQUEST)
             return Response({"error": "Erro de dados duplicados."}, status=status.HTTP_400_BAD_REQUEST)
+
         except Exception as e:
             return Response({"error": f"Erro inesperado: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         return Response({
             "message": "Empresa e usuário RH cadastrados com sucesso!",
             "empresa": empresa_obj.nome,
+            "lead": empresa_obj.lead,  
             "usuario_email": usuario_rh.email
         }, status=status.HTTP_201_CREATED)
+
 
 
 class CnpjView(APIView):
@@ -636,7 +644,6 @@ class RHColabTicketsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        # Verifica se é RH
         if request.user.role != 'rh':
             return Response({"error": "Acesso negado."}, status=403)
             
@@ -644,7 +651,6 @@ class RHColabTicketsView(APIView):
         if not empresa_rh:
              return Response({"error": "RH sem empresa vinculada."}, status=400)
 
-        # Busca tickets de colaboradores DESSA empresa
         tickets = TicketColabs.objects.filter(
             usuario__empresa=empresa_rh
         ).order_by('-criado_em')
@@ -860,4 +866,18 @@ class aprimoramentoPessoal(APIView):
                             status=status.HTTP_201_CREATED)
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        
+
+class ConteudoListCreateView(generics.ListCreateAPIView):
+    queryset = Conteudo.objects.all().order_by('-created_at')
+    serializer_class = ConteudoSerializer
+    permission_classes = [IsAuthenticated] 
+    def perform_create(self, serializer):
+        serializer.save(autor=self.request.user) 
+
+class ConteudoDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Conteudo.objects.all()
+    serializer_class = ConteudoSerializer
+    permission_classes = [IsAuthenticated] 
+    lookup_field = 'pk'
+
+
