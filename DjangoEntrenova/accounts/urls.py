@@ -6,7 +6,7 @@ from .views import RegisterView, MeuViewSet
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from .views import (
     RegisterView, PostListCreateView, PostDetailView, ComentarioListCreateView, FuncionariosView, EmpresaRegistrationView, CnpjView, CpfView, PrimeiroLoginView, GerarPDFView, SalvarDiagnosticoView, VerDiagnosticoView, ListarDiagnosticosView, GerarChatPDFView, Dashwidgets, CnpjView, CpfView,
-    SalvarDiagnosticoView, ListarDiagnosticosView, VerDiagnosticoView, EmpresaListView, EmpresaDetailView, TicketsColaboradoresView, CriarTicketView, fechar_ticket, RHColabTicketsView, ActivePlanView, encaminhar_ticket_para_admin)
+    SalvarDiagnosticoView, ListarDiagnosticosView, VerDiagnosticoView, EmpresaListView, EmpresaDetailView, TicketsColaboradoresView, CriarTicketView, fechar_ticket, RHColabTicketsView, ActivePlanView, encaminhar_ticket_para_admin, aprimoramentoPessoal)
 from api.views import (
     AdminTicketListView,
     TicketCreateView,
@@ -35,6 +35,7 @@ urlpatterns = [
     path('diagnosticos/<uuid:diagnostico_id>/', VerDiagnosticoView.as_view(), name='api_ver_diagnostico'),
     path('diagnosticos/<uuid:diagnostico_id>/pdf/', GerarChatPDFView.as_view(), name='api_gerar_chat_pdf'),
     path('dashwidgets', Dashwidgets.as_view(), name='dashwidgets'),
+    path('aprimoramento-pessoal', aprimoramentoPessoal.as_view(), name='aprimoramento-pessoal'),
 
     path('tickets/rh/create/', TicketCreateView.as_view(), name='ticket-rh-create'),
     path('tickets/rh/list/', RHTicketListView.as_view(), name='ticket-rh-list'),

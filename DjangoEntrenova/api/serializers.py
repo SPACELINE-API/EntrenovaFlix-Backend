@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from accounts.serializers import UsuarioSimplesSerializer
-from .models import Ticket, TicketMensagem
+from .models import Ticket, TicketMensagem, aprimoramentoPessoal
 
 
 class TicketMensagemSerializer(serializers.ModelSerializer):
@@ -35,3 +35,9 @@ class TicketSerializer(serializers.ModelSerializer):
     def get_encaminhado(self, obj):
         
         return obj.autor == "RH"
+    
+class AprimoramentoPessoalSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = aprimoramentoPessoal
+        fields = ['id', 'resultado', 'created_at'] 
+        read_only_fields = ['id', 'created_at']
