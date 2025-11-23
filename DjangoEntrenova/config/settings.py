@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+from datetime import timedelta
 import os
 from pathlib import Path
 from dotenv import load_dotenv
@@ -155,4 +156,5 @@ REST_FRAMEWORK = {
 SIMPLE_JWT = {
   "USER_ID_FIELD": "id",
   "USER_ID_CLAIM": "user_id",
+  "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60)
 }
