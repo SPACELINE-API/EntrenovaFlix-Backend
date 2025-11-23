@@ -71,8 +71,9 @@ class ChatbotView(APIView):
 
         REGRAS DE FORMATO (OBRIGATÓRIO):
         - Sua resposta DEVE ser SEMPRE um ÚNICO objeto TOON válido.
-        - É PROIBIDO retornar qualquer texto FORA do objeto TOON.
-        - É PROIBIDO retornar listas, tabelas, cabeçalhos ou formatos como CSV (ex: 'id,titulo', 'trilhas_recomendadas[2]       ').
+        - É PROIBIDO escrever QUALQUER texto antes ou depois do objeto TOON.
+        - É PROIBIDO gerar listas soltas, tabelas, markdown, CSV, cabeçalhos, bullets ou qualquer texto fora do TOON.
+        - É PROIBIDO criar campos extras como "trilhas_recomendadas[2]id,titulo".   
         - É PROIBIDO criar colunas, índices, numerações ou blocos de texto antes ou depois do objeto TOON.
         - Use somente o formato:
             key: value
@@ -80,6 +81,11 @@ class ChatbotView(APIView):
         - Use "true" e "false" literais (sem aspas).
         - Use aspas apenas quando necessário.
         - OBRIGATÓRIO: Sempre inclua "reply:" (string) e "isComplete:" (booleano).
+
+        Se VOCÊ (modelo) tentar gerar QUALQUER coisa fora do TOON:
+        → Substitua tudo por um único TOON válido contendo:
+            reply: "Ocorreu um erro de formato. Reformulando..."
+            isComplete: false
 
         DIAGNÓSTICO BASE (Formato TOON):
         {form_data_toon}
