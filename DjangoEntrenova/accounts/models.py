@@ -63,6 +63,9 @@ class Empresa(models.Model):
     is_active = models.BooleanField(default=True)
     lead = models.IntegerField(default=0)
 
+    def total_usuarios(self):
+        return self.usuarios.filter(is_active=True).count()
+
     def __str__(self):
 
         return self.nome
@@ -94,6 +97,7 @@ class Usuario(AbstractBaseUser, PermissionsMixin):
     is_superuser = models.BooleanField(default=False)
     is_staff = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
+    date_joined = models.DateTimeField(auto_now_add=True)
     email = models.EmailField(unique=True) 
     nome = models.CharField(max_length=150) 
     sobrenome = models.CharField(max_length=150, null=True, blank = True )
@@ -147,7 +151,7 @@ class Comentarios(models.Model):
     post = models.ForeignKey(Posts, on_delete=models.CASCADE)
     conteudo = models.TextField()
     data_criacao = models.DateTimeField(blank=True, null=True)
-    resposta_a = models.ForeignKey('self', on_delete=models.CASCADE, db_column='resposta_a', blank=True, null=True)
+    resposta_a = models.ForeignKey('self', on_delete=models.CASCADE, db_column='resposta_a', related_name='respostas', blank=True, null=True)
 
     class Meta:
         managed = True
@@ -190,3 +194,54 @@ class Formulario1(models.Model):
     
     class Meta:
         db_table = 'formulario1'
+
+class DiagnosticoChat(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False) 
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.CASCADE, 
+        related_name="diagnosticos_chatbot" 
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    tipo_trilha = models.CharField(max_length=255)
+    conversa_completa = models.JSONField()
+
+    class Meta:
+        ordering = ['-created_at']
+        db_table = 'diagnosticos_chatbot' 
+        verbose_name_plural = "Diagnósticos"
+
+    def __str__(self):
+        return f"Diagnóstico de {self.tipo_trilha} para {self.user.email}"
+
+class Conteudo(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    titulo = models.CharField(max_length=255)
+    descricao = models.TextField()
+    softSkills = models.JSONField(db_column='soft_skills', default=list) 
+    tipo = models.CharField(max_length=50, default='Trilha')
+    link = models.URLField(max_length=2000, null=True, blank=True)
+    created_at = models.DateTimeField(db_column='criado_em', auto_now_add=True)
+    updated_at = models.DateTimeField(db_column='atualizado_em', auto_now=True)
+    autor = models.ForeignKey('Usuario', on_delete=models.SET_NULL, null=True, db_column='autor_id') 
+    
+    class Meta:
+        db_table = 'api_conteudo' 
+        managed = False          
+    def __str__(self):
+        return self.titulo
+    
+
+
+class TicketColabs(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    usuario = models.ForeignKey(Usuario, on_delete=models.CASCADE)
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, null=True)
+    titulo = models.CharField(max_length=150)
+    descricao = models.TextField()
+    categoria = models.CharField(max_length=50)
+    status = models.CharField(max_length=20, default="pendente")
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'tickets'

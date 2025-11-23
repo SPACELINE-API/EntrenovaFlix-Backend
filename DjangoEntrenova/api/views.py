@@ -1,12 +1,18 @@
+from django.shortcuts import get_object_or_404
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.permissions import AllowAny 
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from accounts.models import Empresa, Usuario
 from .ai_service import gemini_service, gemini_service_flash
 import json
 import re
 from rest_framework.permissions import IsAuthenticated 
+from .models import conteudoTrilha, TicketMensagem, Ticket
+from .serializers import TicketSerializer
+from django.db import transaction
+from toon_format import encode, decode, ToonDecodeError, DecodeOptions
+
 
 class AprovarPagamentoView (APIView):
     permission_classes = [AllowAny]
@@ -19,132 +25,184 @@ class AprovarPagamentoView (APIView):
             return Response ({"error": "Empresa não encontrada"}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
              return Response ({"error": f"Erro ao aprovar pagamento: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
-
+                      
+            
+            
 class ChatbotView(APIView):
     permission_classes = [AllowAny]
 
-    def post(self, request):
-        if not gemini_service:
-            return Response(
-                {"error": "O serviço de IA não está disponível."},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+    def _build_toon_catalog(self) -> str:
+        try: 
+            conteudos = conteudoTrilha.objects.select_related('categoria').all()
+            catalogo_lista = []
+            for item in conteudos:
+                catalogo_lista.append({
+                    "id": str(item.id),
+                    "titulo": item.titulo,
+                    "tags": "~".join(item.tags_problema), 
+                    "dica": item.dica_rapida,
+                })
+            
+            return encode(catalogo_lista)
+        except Exception as e:
+            print(f"ERRO CRÍTICO: Não foi possível carregar o catálogo de trilhas: {e}")
+            return "catalogo[0,]{id,titulo,tags,dica}:"
 
-        user_message = request.data.get('message')
-        history = request.data.get('history', [])
-        form_data_str = request.data.get('formu', '{}') 
-        form_data_str = request.data.get('formu', '{}') 
+    def _get_system_prompt(self, form_data_toon: str, catalogo_toon: str) -> str:
+        
+        exemplo_passo_3 = {
+            "reply": "Para prioridades, sugiro 'Definindo Prioridades' (ID: uuid-1). Quer ver outro ponto?",
+            "trilhas_recomendadas": [
+                {"id": "uuid-1", "titulo": "Definindo Prioridades Claras"}
+            ],
+            "isComplete": False
+        }
 
-        try:
-             form_data = json.loads(form_data_str) if isinstance(form_data_str, str) else form_data_str
-        except json.JSONDecodeError:
-             form_data = form_data_str
+        exemplo_passo_4 = {
+            "reply": "Combinado. Resumo:\n\n- Título 1: Dica 1\n- Título 2: Dica 2\n\nAté mais!",
+            "trilhas_recomendadas": [], 
+            "isComplete": True
+        }
 
-        if not history and form_data and form_data != '{}':
-            print("--- DADOS DO FORMULÁRIO RECEBIDOS (INÍCIO DA CONVERSA) ---")
-            print(json.dumps(form_data, indent=2, ensure_ascii=False))
-            print("-------------------------------------------------------------")
+        return f"""
+        Você é a I.A. da Entrenova, uma consultora de negócios estratégica e proativa.
+        Sua missão é diagnosticar e solucionar problemas empresariais de forma empática e prática.
+        Use textos curtos e objetivos.
 
-        if not user_message:
-            return Response(
-                {"error": "O campo 'message' é obrigatório."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        REGRAS DE FORMATO (OBRIGATÓRIO):
+        - Sua resposta DEVE ser SEMPRE um ÚNICO objeto TOON válido.
+        - É PROIBIDO escrever QUALQUER texto antes ou depois do objeto TOON.
+        - É PROIBIDO gerar listas soltas, tabelas, markdown, CSV, cabeçalhos, bullets ou qualquer texto fora do TOON.
+        - É PROIBIDO criar campos extras como "trilhas_recomendadas[2]id,titulo".   
+        - É PROIBIDO criar colunas, índices, numerações ou blocos de texto antes ou depois do objeto TOON.
+        - Use somente o formato:
+            key: value
+            - indentação para aninhamento.
+        - Use "true" e "false" literais (sem aspas).
+        - Use aspas apenas quando necessário.
+        - OBRIGATÓRIO: Sempre inclua "reply:" (string) e "isComplete:" (booleano).
 
-        system_prompt = f"""
-            Você é a I.A. da Entrenova, uma consultora de negócios estratégica e proativa.
-            Sua missão é diagnosticar e solucionar problemas empresariais de forma empática e prática, guiando o usuário passo a passo.
-            O diagnóstico base é o seguinte: {json.dumps(form_data, ensure_ascii=False)}.
-            Siga estes 4 passos na conversa:
-            PASSO 1: INICIO
-            - NÃO cumprimente 
-            - Mencione que analisou o formulário (só na primeira vez).
-            - Apresente o primeiro ponto fraco identificado e faça uma pergunta aberta sobre ele.("Qual o maior desafio encontrado na sua empresa atualmente?")
-            PASSO 2: INVESTIGAÇÃO
-            - Após analisar o formulário inicial e identificar quais das quatro dimensões (Pessoas & Cultura, Estrutura & Operações, etc.) necessitam de melhora.
-            - Caso o usuário pergunte sobre geração das trilhas, diga "A geração das trilhas será após a investigação sobre sua empresa" e conduza as perguntas da entrevista.
-            - Conduza uma entrevista de aprofundamento focada apenas nas dimensões que foram diagnosticadas como pontos a melhorar. 
-            - Seja concisa. Não repita saudações ou "analisei o formulário".
-              Ex: "Entendo. E essa dificuldade parece estar mais nos canais utilizados ou na clareza das mensagens?"
-            - Para cada dimensão problemática identificada, siga o roteiro exato de transição e perguntas principais.
-            - Faça uma pergunta de aprofundamento específica e concisa sobre o que o usuário acabou de dizer, para explorar a causa ou um exemplo.
-            - Só então, passe para a próxima pergunta principal do roteiro.
-            -Roteiro de Investigação (Siga apenas para as dimensões necessárias)
-            Dimensão 1: Pessoas & Cultura
-                Inicie o primeiro tópico: "Vamos começar falando sobre Pessoas & Cultura."
-                Faça a primeira pergunta: "Quando alguém comete um erro, o que costuma acontecer?"
-                (Aguarde a resposta)
-                Faça uma pergunta para afundar o assunto
-                (Aguarde a resposta)
-                Faça a segunda pergunta: "E sobre conflitos? Os conflitos dentro da equipe são resolvidos de forma rápida, demorada ou raramente são resolvidos?"
-            Dimensão 2: Estrutura & Operações**
-                Faça a transição: "Obrigado. Agora, vamos falar um pouco sobre Estrutura & Operações."
-                Faça a primeira pergunta: "Como as pessoas sabem o que é prioridade em um projeto?"
-                (Aguarde a resposta)
-                Faça uma pergunta para afundar o assunto
-                (Aguarde a resposta)
-                Faça a segunda pergunta: "Quando alguém precisa tomar uma decisão simples, o que costuma fazer?"
-            Dimensão 3: Mercado & Clientes**
-                Faça a transição: "Entendido. Mudando o foco para a relação com o Mercado & Clientes..."
-                Faça a primeira pergunta: "Quando um cliente traz uma demanda inesperada, como a equipe reage?"
-                (Aguarde a resposta)
-                Faça uma pergunta para afundar o assunto
-                (Aguarde a resposta)
-                Faça a segunda pergunta: "Qual foi a última vez que a empresa mudou uma rotina por causa de feedback externo?"
-            Dimensão 4: Direção & Futuro**
-                Faça a transição: "Estamos quase acabando. Por último, vamos falar sobre Direção & Futuro."
-                Faça a primeira pergunta: "Se você tivesse que explicar a visão de futuro da empresa em uma frase, qual seria?"
-                (Aguarde a resposta)
-                Faça uma pergunta para afundar o assunto
-                (Aguarde a resposta)
-                Faça a segunda pergunta: "Na sua opinião, quem são os futuros líderes que já estão surgindo na empresa?"
-            PASSO 3: SOLUÇÃO
-            - Ao ter informações suficientes, responda com:
-              1. Reconhecimento breve (1 frase).
-              2. 2-3 soluções práticas listadas com hífens.
-            Ex: "Percebi no diagnóstico que um desafio é a 'Comunicação Interna'.\\nComo isso tem se manifestado recentemente na sua equipe?"
-            Ex: "Compreendi a questão dos ruídos. Algumas ações podem ajudar:\\n- Definir um canal oficial para comunicados importantes;\\n- Fazer reuniões curtas de alinhamento no início do dia."
-            PASSO 4: TRANSIÇÃO/ENCERRAMENTO
-            - Após as soluções, pergunte como o usuário deseja prosseguir:
-              1. Aprofundar neste ponto?
-              2. Ir para o próximo ponto fraco?
-              3. Encerrar por agora?
-            - IMPORTANTE: Se o usuário responder indicando que deseja encerrar (ex: "encerrar", "por agora chega", "obrigado, podemos parar", "satisfeito"), sua resposta JSON DEVE ter "isComplete": true e uma mensagem de despedida curta. Caso contrário, "isComplete" deve ser false.
-            - Se ele escolher continuar, volte ao PASSO 2 ou inicie um novo ciclo para outro ponto fraco, sem repetir saudações.
-            REGRAS GERAIS:
-            - Tom profissional, empático e natural.
-            - Linguagem simples e direta.
-            - Respostas curtas e objetivas.
-            - Deve perguntar uma pergunta por vez
-            FORMATAÇÃO OBRIGATÓRIA DA RESPOSTA:
-            - Sua resposta DEVE SER SEMPRE um objeto JSON válido com as chaves "reply" (string com o texto formatado com \\n) e "isComplete" (booleano).
-            - Use "\\n" para quebras de linha. Listas com hífens. Sem negrito ou asteriscos (**).
+        Se VOCÊ (modelo) tentar gerar QUALQUER coisa fora do TOON:
+        → Substitua tudo por um único TOON válido contendo:
+            reply: "Ocorreu um erro de formato. Reformulando..."
+            isComplete: false
+
+        DIAGNÓSTICO BASE (Formato TOON):
+        {form_data_toon}
+
+        CATÁLOGO DE CONTEÚDO (Formato Tabular TOON [N,]{{id,titulo,tags,dica}}):
+        {catalogo_toon}
+
+        REGRA DE GATILHO DE ENCERRAMENTO (Prioridade Máxima):
+        - Se a ÚLTIMA MENSAGEM DO USUÁRIO for um pedido claro para parar ou encerrar
+          (ex: "encerrar", "por agora chega", "satisfeito", "pode encerrar"),
+          você DEVE ignorar os Passos 1-3.
+        - Vá direto ao PASSO 4: ENCERRAMENTO.
+        - A resposta DEVE ter "isComplete: true".
+
+        Siga estes 4 passos na conversa (a menos que a REGRA DE GATILHO seja ativada):
+
+        PASSO 1: INICIO
+        - NÃO cumprimente.
+        - NÃO mencione que analisou o formulário.
+        - Apresente o primeiro ponto fraco identificado e faça uma pergunta aberta.
+        - Resposta curta.
+        - Exemplo TOON:
+          reply: "Analisei seu formulário. Qual o maior desafio hoje?"
+          isComplete: false
+
+        PASSO 2: INVESTIGAÇÃO
+        - Conduza a entrevista com perguntas breves.
+        - Pode usar a "dica" de um item do catálogo como mini-dica se a tag corresponder.
+        - Sempre formato TOON.
+        - Exemplo TOON (Pergunta):
+          reply: "Entendo. E sobre o fluxo de tarefas?"
+          isComplete: false
+        - Exemplo TOON (com mini-dica):
+          reply: "Para isso, uma dica é [dica do item]. Faz sentido?"
+          isComplete: false
+
+        PASSO 3: SOLUÇÃO (RECOMENDAÇÃO)
+        - Quando tiver clareza sobre a dor, PARE de aprofundar.
+        - Consulte o CATÁLOGO e selecione trilhas recomendadas.
+        - EXPLIQUE cada conteúdo com 1 frase sobre como ele resolve a dor.
+        - Retorne no TOON uma LISTA de objetos em "trilhas_recomendadas".
+        - SEMPRE no interior do objeto TOON, nunca como tabela externa.
+        - Exemplo TOON:
+          {encode(exemplo_passo_3)}
+
+        PASSO 4: ENCERRAMENTO
+        - Ativado quando o usuário pede para encerrar ou confirma encerramento.
+        - Despedida curta + lista de TODOS os conteúdos recomendados.
+        - Exemplo TOON:
+          {encode(exemplo_passo_4)}
+
+        REGRAS GERAIS:
+        - Tom profissional, empático e natural.
+        - Respostas curtas e objetivas.
+        - A resposta DEVE SEMPRE ser um objeto TOON com:
+            "reply": string
+            "isComplete": booleano
+        - REGRA CRÍTICA:
+            - Perguntas/transições → isComplete: false
+            - Despedida final → isComplete: true
         """
 
-        try:
-            chat_session = gemini_service.start_chat_session(system_prompt, history)
-            response = chat_session.send_message(user_message)
-
-            cleaned_text = response.text.strip().replace('```json', '').replace('```', '').strip()
-
-            try:
-                ai_response = json.loads(cleaned_text)
-                if 'reply' not in ai_response or 'isComplete' not in ai_response:
-                    print(f"Alerta: JSON da IA não contém 'reply'/'isComplete'. Encapsulando. Resposta: '{cleaned_text}'")
-                    ai_response = { "reply": cleaned_text, "isComplete": False }
-            except (json.JSONDecodeError) as json_error:
-                 print(f"Alerta: IA não retornou JSON válido. Erro: {json_error}. Resposta: '{cleaned_text}'")
-                 ai_response = { "reply": cleaned_text, "isComplete": False }
-
-            return Response(ai_response, status=status.HTTP_200_OK)
-
-        except Exception as e:
+    def post(self, request):
+        if not gemini_service:
+            print("ERRO CRÍTICO NA CHATBOTVIEW: O gemini_service não foi inicializado.")
             return Response(
-                {"error": "Ocorreu um erro ao se comunicar com o serviço de IA."},
+                {"reply": "O serviço de IA não está disponível.", "isComplete": True}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+        try:
+            parsed_request = request.data
+            
+            user_message = parsed_request.get('message')
+            history = parsed_request.get('history', []) 
+            form_data = parsed_request.get('formu', {}) 
+
+            if not user_message:
+                return Response(
+                    {"reply": "O campo 'message' é obrigatório.", "isComplete": True}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            form_data_toon = encode(form_data)
+            catalogo_toon = self._build_toon_catalog()
+            system_prompt = self._get_system_prompt(form_data_toon, catalogo_toon)
+
+            chat_session = gemini_service.start_chat_session(system_prompt, history)
+            response = chat_session.send_message(user_message)
+            
+            ai_response_toon = response.text.strip()
+            ai_response_dict = {}
+            
+            try:
+                ai_response_dict = decode(ai_response_toon, DecodeOptions(strict=False))
+            except Exception as e:
+                print(f"Alerta: IA não retornou TOON válido ou ocorreu um erro de decodificação. Erro: {e}. Resposta bruta: '{ai_response_toon}'")
+
+            if not isinstance(ai_response_dict, dict) or 'reply' not in ai_response_dict or 'isComplete' not in ai_response_dict:
+                
+                print(f"DEBUG: Ativando Fallback. TOON inválido recebido: '{ai_response_toon}'.")
+                
+                clean_reply = ai_response_toon.strip().replace('{', '').replace('}', '').replace(':', '')
+
+                ai_response_dict = {
+                    "reply": clean_reply, 
+                    "isComplete": False 
+                }
+            
+            return Response(ai_response_dict, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            print(f"ERRO CRÍTICO NA CHATBOTVIEW (Geral): {e}")
+            return Response(
+                {"reply": f"Ocorreu um erro interno no servidor: {e}", "isComplete": True}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
 class DiagnosticAIView(APIView):
     permission_classes = [AllowAny]
 
@@ -402,3 +460,64 @@ class LeadScoreView(APIView):
         except Exception as e:
             print(f"Erro ao calcular lead score: {e}")
             return Response({"error": "Erro ao processar dados do lead."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class TicketCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @transaction.atomic
+    def post(self, request):
+        autor = request.user
+        assunto = request.data.get("assunto")
+        texto = request.data.get("texto")
+
+        if not assunto or not texto:
+            return Response(
+                {"error": "Assunto e texto são obrigatórios."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        ticket = Ticket.objects.create(
+            assunto=assunto,
+            autor=autor,
+            empresa=autor.empresa,
+            status="Aberto"
+        )
+
+        TicketMensagem.objects.create(
+            ticket=ticket,
+            autor=autor,
+            texto=texto
+        )
+
+        return Response(
+            TicketSerializer(ticket).data, 
+            status=status.HTTP_201_CREATED
+        )
+
+
+
+class AdminTicketListView(APIView):
+    permission_classes = [IsAuthenticated] 
+
+    def get(self, request):
+        if request.user.role == "admin":
+            tickets = Ticket.objects.all().order_by('-created_at')
+        else:
+            tickets = Ticket.objects.filter(empresa=request.user.empresa).order_by('-created_at')
+        serializer = TicketSerializer(tickets, many=True)
+
+        return Response(serializer.data)
+    
+    
+class RHTicketListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if request.user.role != "rh":
+            return Response({"error": "Acesso negado."}, status=403)
+        
+        tickets = Ticket.objects.filter(
+            empresa=request.user.empresa
+        ).order_by('-created_at')
+
+        return Response(TicketSerializer(tickets, many=True).data)

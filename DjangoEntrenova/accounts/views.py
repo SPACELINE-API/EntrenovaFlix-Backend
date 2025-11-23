@@ -1,17 +1,26 @@
+import json
+from django.shortcuts import get_object_or_404
 from rest_framework import generics, status
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.exceptions import NotFound
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.db import IntegrityError, transaction
+from django.utils import timezone
+from datetime import timedelta
+from django.db.models import Count, F, Q
 import re
+from .models import Posts, Comentarios, Usuario, Empresa, Plans, DiagnosticoChat, Conteudo
 
-from .models import Posts, Comentarios, Usuario, Empresa, Plans
-from .serializers import PostSerializer, ComentarioSerializer, UserSerializer, MyTokenObtainPairSerializer
+from .models import Posts, Comentarios, Usuario, Empresa, Plans, TicketColabs
+from .serializers import PostSerializer, ComentarioSerializer, UserSerializer, EmpresaSerializer, MyTokenObtainPairSerializer, TicketColabSerializer, ConteudoSerializer
 from django.http import HttpResponse
 from django.template.loader import render_to_string
 from xhtml2pdf import pisa
+from api.serializers import AprimoramentoPessoalSerializer, TicketMensagemSerializer, TicketSerializer,TicketMensagem, Ticket
 
 class RegisterView(generics.CreateAPIView):
     queryset = Usuario.objects.all()
@@ -60,11 +69,22 @@ class ComentarioListCreateView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         post_id = self.kwargs.get('post_id')
+        resposta_a_id = self.request.data.get('resposta_a')
+
         try:
             post = Posts.objects.get(id=post_id)
-            serializer.save(usuario=self.request.user, post=post)
         except Posts.DoesNotExist:
-            pass
+            raise NotFound("Post não encontrado.")
+
+        resposta_a = None
+        if resposta_a_id:
+            resposta_a = Comentarios.objects.filter(id=resposta_a_id).first()
+
+        serializer.save(
+            usuario=self.request.user,
+            post=post,
+            resposta_a=resposta_a
+        )
 
 class EmpresaRegistrationView(APIView):
     permission_classes = [AllowAny]
@@ -72,13 +92,17 @@ class EmpresaRegistrationView(APIView):
     @transaction.atomic
     def post(self, request):
         dados = request.data
+        lead_score = dados.get('leadScore')  
+        print(lead_score)
         dados_cadastro = dados.get('cadastro', {})
         dados_pagamento = dados.get('pagamento', {})
 
         if not dados_cadastro:
             return Response({"error": "Objeto 'cadastro' não encontrado no payload."}, status=status.HTTP_400_BAD_REQUEST)
+
         dados_solicitante = dados_cadastro.get('dadosSolicitante', {})
         dados_empresa = dados_cadastro.get('dadosEmpresa', {})
+        setor_principal = dados_empresa.get("lead", {}).get("setorPrincipal")
         dados_senha_obj = dados_cadastro.get('dadosSenha', {})
         senha = dados_senha_obj.get('senha')
         plano_nome = dados_pagamento.get('plano') or dados_solicitante.get('plano')
@@ -107,8 +131,11 @@ class EmpresaRegistrationView(APIView):
                 cnpj=cnpj,
                 nome=dados_empresa.get("razaoSocial"),
                 plano=plano_obj,
-                status_pagamento=status_pagamento
+                status_pagamento=status_pagamento,
+                lead=lead_score or 0,
+                area=setor_principal
             )
+
             usuario_rh = Usuario.objects.create_user(
                 email=dados_solicitante.get("emailCorporativo"),
                 password=senha,
@@ -129,15 +156,99 @@ class EmpresaRegistrationView(APIView):
             if 'cpf' in str(e).lower():
                 return Response({"error": "Este CPF já está cadastrado."}, status=status.HTTP_400_BAD_REQUEST)
             return Response({"error": "Erro de dados duplicados."}, status=status.HTTP_400_BAD_REQUEST)
+
         except Exception as e:
             return Response({"error": f"Erro inesperado: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         return Response({
             "message": "Empresa e usuário RH cadastrados com sucesso!",
             "empresa": empresa_obj.nome,
+            "lead": empresa_obj.lead,  
             "usuario_email": usuario_rh.email
         }, status=status.HTTP_201_CREATED)
+
+
+
+class CnpjView(APIView):
+   permission_classes = [AllowAny]
+   def post(self, request):
+        cnpj_recebido = request.data.get('cnpj', '')
+        cnpj_limpo = re.sub(r'\D', '', cnpj_recebido)
+        exists = Empresa.objects.filter(cnpj=cnpj_limpo).exists()
+        return Response({"exists": exists}, status=status.HTTP_200_OK)
+
+class CpfView(APIView):
+   permission_classes = [AllowAny]
+   def post(self, request):
+        cpf_recebido = request.data.get('cpf', '')
+        cpf_limpo = re.sub(r'\D', '', cpf_recebido)
+        exists = Usuario.objects.filter(cpf=cpf_limpo).exists()
+        return Response({"exists": exists}, status=status.HTTP_200_OK)
     
+   
+class EmpresaListView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        empresas = Empresa.objects.select_related('plano').all().order_by('nome')
+        serializer = EmpresaSerializer(empresas, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+class EmpresaDetailView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get_obj(self, cnpj: str):
+        try:
+            return Empresa.objects.get(cnpj=cnpj)
+        except Empresa.DoesNotExist:
+            return None
+    
+    def get(self, request, cnpj: str):
+        empresa = self.get_obj(cnpj)
+        if not empresa:
+            return Response({"error": "Empresa não encontrada."}, status=status.HTTP_404_NOT_FOUND)
+        return Response(EmpresaSerializer(empresa).data, status=status.HTTP_200_OK)
+    
+    def patch(self, request, cnpj: str):
+        empresa = self.get_obj(cnpj)
+
+        if not empresa:
+            return Response({"error": "Empresa não encontrada."}, status=status.HTTP_404_NOT_FOUND)
+        
+        dados = request.data or {}
+
+        obrigatorios = ['nome', 'area', 'lead']
+        for campo in obrigatorios:
+            if campo in dados and (dados[campo] is None or str(dados[campo]).strip() == ''):
+                return Response({"error": "Dados inválidos", "details": {campo: "Campo obrigatório"}}, status=status.HTTP_400_BAD_REQUEST)
+            
+        serializer = EmpresaSerializer(instance=empresa, data=dados, partial=True)
+
+        if not serializer.is_valid():
+            return Response({"error": "Dados inválidos", "details": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Exception:
+            return Response({"error": "Erro interno ao atualizar empresa."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    def put(self, request, cnpj: str):
+        return self.patch(request, cnpj)
+    
+    def delete(self, request, cnpj: str):
+        empresa = self.get_obj(cnpj)
+
+        if not empresa:
+            return Response({"error": "Empresa não encontrada"}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            empresa.delete()
+            return Response({"message": "Empresa excluída com sucesso"}, status=status.HTTP_200_OK)
+        except Exception:
+            return Response({"error": "Erro interno ao excluir empresa"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 class FuncionariosView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
@@ -242,6 +353,65 @@ class FuncionariosView(APIView):
         except Exception:
             return Response({"error": "Erro interno ao excluir funcionário."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
+class AdminRegistrationView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        dados = request.data
+        required_fields = ['email', 'nome', 'sobrenome', 'password', 'cpf', 'data_nascimento', 'empresa_id']
+        if not all(dados.get(field) for field in required_fields):
+            return Response(
+                {"error": "Campos obrigatórios: email, nome, sobrenome, password, cpf, data_nascimento, empresa_id."}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            empresa = Empresa.objects.get(id=dados.get("empresa_id"))
+        except Empresa.DoesNotExist:
+            return Response({"error": "Empresa não encontrada."}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            plano = empresa.plano
+            if plano and plano.limite_usuarios and Usuario.objects.filter(empresa=empresa).count() >= plano.limite_usuarios:
+                return Response(
+                    {"error": f"Limite de usuários atingido ({plano.limite_usuarios}) para esta empresa."}, 
+                    status=status.HTTP_403_FORBIDDEN
+                )
+        except Exception:
+            return Response({"error": "Erro ao verificar limite de usuários da empresa."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        try:
+            cpf_limpo = re.sub(r'\D', '', dados.get("cpf", ""))
+            telefone_limpo = re.sub(r'\D', '', dados.get("telefone", ""))
+
+            if len(cpf_limpo) != 11:
+                return Response({"error": "CPF inválido. Deve conter 11 dígitos."}, status=status.HTTP_400_BAD_REQUEST)
+            if telefone_limpo and not (10 <= len(telefone_limpo) <= 11):
+                return Response({"error": "Telefone inválido. Deve conter 10 ou 11 dígitos."}, status=status.HTTP_400_BAD_REQUEST)
+
+            user = Usuario.objects.create_user(
+                email=dados.get("email"),
+                nome=dados.get("nome"),
+                sobrenome=dados.get("sobrenome"),
+                password=dados.get("password"),
+                cpf=cpf_limpo,
+                telefone=telefone_limpo if telefone_limpo else None,
+                data_nascimento=dados.get("data_nascimento"),
+                empresa=empresa, 
+                role=Usuario.ROLE_ADMIN, 
+                is_staff=True 
+            )
+            return Response({"message": "Admin da empresa criado com sucesso!", "id": user.id}, status=status.HTTP_201_CREATED)
+
+        except IntegrityError as e:
+            if 'email' in str(e).lower():
+                return Response({"error": "Este email já está cadastrado."}, status=status.HTTP_400_BAD_REQUEST)
+            if 'cpf' in str(e).lower():
+                return Response({"error": "Este CPF já está cadastrado."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "Erro de integridade ao cadastrar admin."}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({"error": f"Erro inesperado: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
 class GerarPDFView(APIView):
     permission_classes = [AllowAny]
 
@@ -274,3 +444,441 @@ class GerarPDFView(APIView):
             return HttpResponse("Erro ao gerar o PDF")
         
         return response
+
+class SalvarDiagnosticoView(APIView):
+    permission_classes = [IsAuthenticated] 
+    def post(self, request):
+        try:
+            conversa_array = request.data.get('conversa')
+            tipo_trilha = request.data.get('tipo_trilha')
+
+            if not conversa_array or not tipo_trilha:
+                return Response({'status': 'erro', 'message': 'Dados incompletos.'}, status=status.HTTP_400_BAD_REQUEST)
+            DiagnosticoChat.objects.create(
+                user=request.user,
+                tipo_trilha=tipo_trilha,
+                conversa_completa=conversa_array
+            )
+            return Response({'status': 'sucesso', 'message': 'Diagnóstico salvo!'}, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({'status': 'erro', 'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class ListarDiagnosticosView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        diagnosticos = DiagnosticoChat.objects.filter(user=request.user)
+        lista_para_frontend = list(diagnosticos.values(
+            'id', 
+            'created_at', 
+            'tipo_trilha'
+        ))
+        
+        return Response({'diagnosticos': lista_para_frontend}, status=status.HTTP_200_OK)
+
+class VerDiagnosticoView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, diagnostico_id):
+        try:
+            diagnostico = DiagnosticoChat.objects.get(id=diagnostico_id, user=request.user)
+            return Response({
+                'tipo_trilha': diagnostico.tipo_trilha,
+                'created_at': diagnostico.created_at,
+                'conversa_completa': diagnostico.conversa_completa
+            }, status=status.HTTP_200_OK)
+            
+        except DiagnosticoChat.DoesNotExist:
+            return Response({'status': 'erro', 'message': 'Diagnóstico não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({'status': 'erro', 'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class GerarChatPDFView(APIView):
+    permission_classes = [IsAuthenticated] 
+
+    def get(self, request, diagnostico_id):
+        try:
+            diagnostico = DiagnosticoChat.objects.get(id=diagnostico_id, user=request.user)     
+        except DiagnosticoChat.DoesNotExist:
+            return Response({'status': 'erro', 'message': 'Diagnóstico não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+        context = {
+            'chat': diagnostico
+        }
+        html = render_to_string('chat_template.html', context)
+
+        response = HttpResponse(content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="diagnostico_{diagnostico_id}.pdf"'
+        pisa_status = pisa.CreatePDF(html, dest=response)
+
+        if pisa_status.err:
+            return HttpResponse("Erro ao gerar o PDF")
+        
+        return response
+    
+def get_mock_engagement_finance_data():
+    return {
+
+        "totalTrilhasCriadas": 85,
+        "trilhasMaisAcessadas": [
+            {"nome": "Liderança 101", "acessos": 1200},
+            {"nome": "Comunicação Efetiva", "acessos": 950},
+            {"nome": "Gestão de Tempo", "acessos": 700},
+        ],
+        "topHobbies": [
+            {"nome": "Leitura", "usuarios": 300},
+            {"nome": "Esportes", "usuarios": 250},
+            {"nome": "Música", "usuarios": 150},
+            {"nome": "Gastronomia", "usuarios": 100},
+        ],
+        "engajamentoVsCrescimento": [
+            ["Jan", 60, 100],
+            ["Fev", 65, 120],
+            ["Mar", 70, 150],
+            ["Abr", 75, 200],
+        ],
+
+        "topDimensoes": [
+            {"nome": "Comunicação", "trabalhadas": 500},
+            {"nome": "Autoconhecimento", "trabalhadas": 450},
+            {"nome": "Liderança", "trabalhadas": 400},
+        ],
+        
+        "revenueTotal": 120500.75,
+        "historicoTransacoes": [
+            {"id": "t1", "empresa": "Empresa A", "valor": 500, "data": "2025-11-14", "plano": "Premium", "metodo": "Cartão"},
+            {"id": "t2", "empresa": "Empresa B", "valor": 750, "data": "2025-11-13", "plano": "Basic", "metodo": "Boleto"},
+            {"id": "t3", "empresa": "Empresa C", "valor": 500, "data": "2025-11-12", "plano": "Standard", "metodo": "Pix"},
+        ]
+    }
+def get_mock_engagement_finance_data():
+    return {
+
+        "totalTrilhasCriadas": 85,
+        "trilhasMaisAcessadas": [
+            {"nome": "Liderança 101", "acessos": 1200},
+            {"nome": "Comunicação Efetiva", "acessos": 950},
+            {"nome": "Gestão de Tempo", "acessos": 700},
+        ],
+        "topHobbies": [
+            {"nome": "Leitura", "usuarios": 300},
+            {"nome": "Esportes", "usuarios": 250},
+            {"nome": "Música", "usuarios": 150},
+            {"nome": "Gastronomia", "usuarios": 100},
+        ],
+        "engajamentoVsCrescimento": [
+            ["Jan", 60, 100],
+            ["Fev", 65, 120],
+            ["Mar", 70, 150],
+            ["Abr", 75, 200],
+        ],
+
+        "topDimensoes": [
+            {"nome": "Comunicação", "trabalhadas": 500},
+            {"nome": "Autoconhecimento", "trabalhadas": 450},
+            {"nome": "Liderança", "trabalhadas": 400},
+        ],
+        
+        "revenueTotal": 12500.,
+        "historicoTransacoes": [
+            {"id": "t1", "empresa": "Empresa A", "valor": 1390.90, "data": "2025-11-14", "plano": "Diamante", "metodo": "Cartão"},
+            {"id": "t2", "empresa": "Empresa B", "valor": 990.90, "data": "2025-11-13", "plano": "Premium", "metodo": "Boleto"},
+            {"id": "t3", "empresa": "Empresa C", "valor": 590.90, "data": "2025-11-12", "plano": "Essencial", "metodo": "Pix"},
+        ]
+    }
+
+    
+class Dashwidgets(APIView):
+
+
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if not request.user.is_staff:
+             return Response({"error": "Acesso não autorizado."}, status=status.HTTP_403_FORBIDDEN)
+        
+        seven_days_ago = timezone.now() - timedelta(days=7)
+        one_day_ago = timezone.now() - timedelta(days=1)
+
+        user_metrics = Usuario.objects.aggregate(
+
+            totalUsuarios=Count('id'),
+            
+            usuariosAtivos=Count('id', filter=Q(last_login__gte=seven_days_ago)),
+            
+            novosInscritos=Count('id', filter=Q(date_joined__gte=one_day_ago))
+        )
+        business_metrics = Empresa.objects.filter(status_pagamento='aprovado').aggregate(
+            totalEmpresas=Count('id')
+        )
+        
+        planos_mais_assinados = Empresa.objects.filter(status_pagamento='aprovado') \
+                                    .values(plano_nome=F('plano__nome')) \
+                                    .annotate(assinantes=Count('id')) \
+                                    .order_by('-assinantes')
+        
+        mock_data = get_mock_engagement_finance_data()
+
+        response_data = {
+            "totalUsuarios": user_metrics['totalUsuarios'],
+            "usuariosAtivos": user_metrics['usuariosAtivos'],
+            "novosInscritos": user_metrics['novosInscritos'],
+            "totalEmpresas": business_metrics['totalEmpresas'],
+            "planosMaisAssinados": list(planos_mais_assinados),
+            **mock_data
+        }
+        
+        return Response(response_data, status=status.HTTP_200_OK)
+
+
+class TicketsColaboradoresView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        tickets = TicketColabs.objects.filter(usuario=request.user).order_by("-criado_em")
+        serializer = TicketColabSerializer(tickets, many=True)
+        
+        return Response(serializer.data, status=200)
+    
+class RHColabTicketsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if request.user.role != 'rh':
+            return Response({"error": "Acesso negado."}, status=403)
+            
+        empresa_rh = request.user.empresa
+        if not empresa_rh:
+             return Response({"error": "RH sem empresa vinculada."}, status=400)
+
+        tickets = TicketColabs.objects.filter(
+            usuario__empresa=empresa_rh
+        ).order_by('-criado_em')
+
+        serializer = TicketColabSerializer(tickets, many=True)
+        return Response(serializer.data)
+    
+class AdminTicketDetailView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get_ticket(self, request, pk):
+
+        user_is_admin = (
+            request.user.is_superuser or 
+            getattr(request.user, "role", None) == Usuario.ROLE_ADMIN
+        )
+
+        if user_is_admin:
+            return get_object_or_404(Ticket, id=pk)
+
+        return get_object_or_404(
+            Ticket,
+            id=pk,
+            empresa=request.user.empresa
+        )
+
+    def get(self, request, pk):
+        ticket = self.get_ticket(request, pk)
+        serializer = TicketSerializer(ticket)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request, pk):
+        
+        ticket = self.get_ticket(request, pk)
+        texto = request.data.get("texto")
+
+        if not texto:
+            return Response(
+                {"error": "O texto da resposta é obrigatório."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if ticket.status == "Fechado":
+            return Response(
+                {"error": "Este ticket já está fechado."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            with transaction.atomic():
+                mensagem = TicketMensagem.objects.create(
+                    ticket=ticket,
+                    autor=request.user,
+                    texto=texto
+                )
+
+            return Response(
+                TicketMensagemSerializer(mensagem).data,
+                status=status.HTTP_201_CREATED
+            )
+
+        except Exception as e:
+            return Response(
+                {"error": "Erro ao salvar a resposta.", "detalhe": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    def delete(self, request, pk):
+        ticket = self.get_ticket(request, pk)
+
+        try:
+            ticket.delete()
+            return Response(
+                {"message": "Ticket excluído com sucesso."},
+                status=status.HTTP_204_NO_CONTENT
+            )
+
+        except Exception as e:
+            return Response(
+                {"error": "Erro ao excluir ticket.", "detalhe": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        
+class colaboradoresView(APIView):
+    permission_classes = [IsAuthenticated]
+    def get(self, request, pk):
+        tickets = TicketColabs.objects.filter(usuario=request.user).order_by("-criado_em")
+        serializer = TicketSerializer(tickets, many=True)
+        
+        return Response(serializer.data, status=200)
+    
+class CriarTicketView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        titulo = request.data.get("titulo")
+        descricao = request.data.get("descricao")
+        categoria = request.data.get("categoria")
+
+        if not all([titulo, descricao, categoria]):
+            return Response({"error": "Todos os campos são obrigatórios."}, status=400)
+
+        ticket = TicketColabs.objects.create(
+            usuario=request.user,
+            titulo=titulo,
+            descricao=descricao,
+            categoria=categoria,
+            status="aberto",
+        )
+
+        return Response(TicketColabSerializer(ticket).data, status=201)
+    
+@api_view(["PATCH"])
+@permission_classes([IsAdminUser])
+def fechar_ticket(request, pk):
+    ticket = get_object_or_404(Ticket, pk=pk)
+
+    if ticket.status == "Fechado":
+        return Response({"erro": "Este ticket já está fechado."}, status=400)
+
+    with transaction.atomic():
+        ticket.status = "Fechado"
+        ticket.save(update_fields=["status"])
+
+        TicketMensagem.objects.create(
+            ticket=ticket,
+            autor=request.user,
+            texto="Ticket fechado pelo administrador."
+        )
+
+    return Response({"status": "Ticket fechado com sucesso!"}, status=200)
+
+class ActivePlanView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        empresa = getattr(user, 'empresa', None)
+        if empresa and empresa.plano:
+            plan_name = empresa.plano.nome
+            return Response({'planName': plan_name}, status=status.HTTP_200_OK)
+        else:
+            return Response({'planName': None}, status=status.HTTP_404_NOT_FOUND)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def encaminhar_ticket_para_admin(request, ticket_id):
+    try:
+        ticket_colab = TicketColabs.objects.get(id=ticket_id)
+    except TicketColabs.DoesNotExist:
+        return Response({"error": "Ticket não encontrado"}, status=status.HTTP_404_NOT_FOUND)
+
+    ticket_admin = Ticket.objects.create(
+        assunto=ticket_colab.titulo,
+        autor=request.user,  
+        empresa=ticket_colab.empresa,
+        status='Aberto'
+    )
+
+    TicketMensagem.objects.create(
+        ticket=ticket_admin,
+        autor=ticket_colab.usuario,  
+        texto=ticket_colab.descricao
+    )
+
+    ticket_colab.status = 'encaminhado'
+    ticket_colab.save()
+
+    return Response({
+        "id": ticket_admin.id,
+        "assunto": ticket_admin.assunto,
+        "status": ticket_admin.status,
+        "created_at": ticket_admin.created_at
+    }, status=status.HTTP_201_CREATED)
+
+class aprimoramentoPessoal(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        respostas = request.data.get('respostas')
+        
+        if not respostas:
+            return Response({"error": "O campo 'respostas' ou 'answers' com os resultados do aprimoramento é obrigatório."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        print(respostas)
+
+        try:
+            resultado_string = json.dumps(respostas)
+        except TypeError:
+            resultado_string = str(respostas) 
+        
+        data = {
+            'resultado': resultado_string,
+        }
+        
+        serializer = AprimoramentoPessoalSerializer(data=data)
+        
+        if serializer.is_valid():
+            
+            user = request.user
+            user_empresa = user.empresa if hasattr(user, 'empresa') and user.empresa else None
+            
+            serializer.save(
+                autor=user, 
+                empresa=user_empresa
+            )
+            
+            return Response({"message": "Resultados de aprimoramento salvos com sucesso.", 
+                             "data": serializer.data}, 
+                            status=status.HTTP_201_CREATED)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class ConteudoListCreateView(generics.ListCreateAPIView):
+    queryset = Conteudo.objects.all().order_by('-created_at')
+    serializer_class = ConteudoSerializer
+    permission_classes = [IsAuthenticated] 
+    def perform_create(self, serializer):
+        serializer.save(autor=self.request.user) 
+
+class ConteudoDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Conteudo.objects.all()
+    serializer_class = ConteudoSerializer
+    permission_classes = [IsAuthenticated] 
+    lookup_field = 'pk'
+
+
