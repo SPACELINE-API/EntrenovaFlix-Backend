@@ -27,7 +27,7 @@ class AprovarPagamentoView (APIView):
              return Response ({"error": f"Erro ao aprovar pagamento: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class ChatbotView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def _build_toon_catalog(self) -> str:
         try:

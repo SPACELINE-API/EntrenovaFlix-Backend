@@ -6,7 +6,7 @@ from .views import RegisterView, MeuViewSet
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from .views import (
     RegisterView, PostListCreateView, PostDetailView, ComentarioListCreateView, FuncionariosView, EmpresaRegistrationView, CnpjView, CpfView, PrimeiroLoginView, GerarPDFView, SalvarDiagnosticoView, VerDiagnosticoView, ListarDiagnosticosView, GerarChatPDFView, Dashwidgets, CnpjView, CpfView,
-    SalvarDiagnosticoView, ListarDiagnosticosView, VerDiagnosticoView, EmpresaListView, EmpresaDetailView, TicketsColaboradoresView, CriarTicketView, fechar_ticket, RHColabTicketsView)
+    SalvarDiagnosticoView, ListarDiagnosticosView, VerDiagnosticoView, EmpresaListView, EmpresaDetailView, TicketsColaboradoresView, CriarTicketView, fechar_ticket, RHColabTicketsView, ActivePlanView, encaminhar_ticket_para_admin)
 from api.views import (
     AdminTicketListView,
     TicketCreateView,
@@ -30,10 +30,10 @@ urlpatterns = [
     path('posts/<uuid:pk>', PostDetailView.as_view(), name='post-detail'),
     path('posts/<uuid:post_id>/comentarios', ComentarioListCreateView.as_view(), name='comentario-list-create'),
     path('gerar-pdf', GerarPDFView.as_view(), name='gerar_pdf'),
-    path('api/diagnosticos/salvar/', SalvarDiagnosticoView.as_view(), name='api_salvar_diagnostico'),
-    path('api/diagnosticos/listar/', ListarDiagnosticosView.as_view(), name='api_listar_diagnosticos'),
-    path('api/diagnosticos/<uuid:diagnostico_id>/', VerDiagnosticoView.as_view(), name='api_ver_diagnostico'),
-    path('api/diagnosticos/<uuid:diagnostico_id>/pdf/', GerarChatPDFView.as_view(), name='api_gerar_chat_pdf'),
+    path('diagnosticos/salvar/', SalvarDiagnosticoView.as_view(), name='api_salvar_diagnostico'),
+    path('diagnosticos/listar/', ListarDiagnosticosView.as_view(), name='api_listar_diagnosticos'),
+    path('diagnosticos/<uuid:diagnostico_id>/', VerDiagnosticoView.as_view(), name='api_ver_diagnostico'),
+    path('diagnosticos/<uuid:diagnostico_id>/pdf/', GerarChatPDFView.as_view(), name='api_gerar_chat_pdf'),
     path('dashwidgets', Dashwidgets.as_view(), name='dashwidgets'),
 
     path('tickets/rh/create/', TicketCreateView.as_view(), name='ticket-rh-create'),
@@ -45,4 +45,6 @@ urlpatterns = [
     path("tickets/<uuid:pk>/fechar", fechar_ticket, name="fechar_ticket"),
     path('tickets/colaboradores/list/', TicketsColaboradoresView.as_view(), name='tickets-colab-list'),
     path('tickets/rh/colaboradores/', RHColabTicketsView.as_view(), name='rh-colab-tickets'),
+    path('active-plan/', ActivePlanView.as_view(), name='active_plan'),
+    path('tickets/encaminhar/<uuid:ticket_id>/', encaminhar_ticket_para_admin, name='encaminhar-ticket')
 ]

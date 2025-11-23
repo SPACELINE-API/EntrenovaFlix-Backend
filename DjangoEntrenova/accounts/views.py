@@ -778,3 +778,49 @@ def fechar_ticket(request, pk):
 
     return Response({"status": "Ticket fechado com sucesso!"}, status=200)
 
+class ActivePlanView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        empresa = getattr(user, 'empresa', None)
+        if empresa and empresa.plano:
+            plan_name = empresa.plano.nome
+            return Response({'planName': plan_name}, status=status.HTTP_200_OK)
+        else:
+            return Response({'planName': None}, status=status.HTTP_404_NOT_FOUND)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def encaminhar_ticket_para_admin(request, ticket_id):
+    try:
+        ticket_colab = TicketColabs.objects.get(id=ticket_id)
+    except TicketColabs.DoesNotExist:
+        return Response({"error": "Ticket não encontrado"}, status=status.HTTP_404_NOT_FOUND)
+
+    # Cria o ticket no fluxo Admin
+    ticket_admin = Ticket.objects.create(
+        assunto=ticket_colab.titulo,
+        autor=request.user,  # Quem está encaminhando
+        empresa=ticket_colab.empresa,
+        status='Aberto'
+    )
+
+    # Copia a descrição inicial como primeira mensagem
+    TicketMensagem.objects.create(
+        ticket=ticket_admin,
+        autor=ticket_colab.usuario,  # Autor original
+        texto=ticket_colab.descricao
+    )
+
+    # Marca ticket de colaborador como encaminhado
+    ticket_colab.status = 'encaminhado'
+    ticket_colab.save()
+
+    return Response({
+        "id": ticket_admin.id,
+        "assunto": ticket_admin.assunto,
+        "status": ticket_admin.status,
+        "created_at": ticket_admin.created_at
+    }, status=status.HTTP_201_CREATED)
