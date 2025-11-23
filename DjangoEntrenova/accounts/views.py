@@ -92,9 +92,8 @@ class EmpresaRegistrationView(APIView):
     @transaction.atomic
     def post(self, request):
         dados = request.data
-
         lead_score = dados.get('leadScore')  
-
+        print(lead_score)
         dados_cadastro = dados.get('cadastro', {})
         dados_pagamento = dados.get('pagamento', {})
 
@@ -103,6 +102,7 @@ class EmpresaRegistrationView(APIView):
 
         dados_solicitante = dados_cadastro.get('dadosSolicitante', {})
         dados_empresa = dados_cadastro.get('dadosEmpresa', {})
+        setor_principal = dados_empresa.get("lead", {}).get("setorPrincipal")
         dados_senha_obj = dados_cadastro.get('dadosSenha', {})
         senha = dados_senha_obj.get('senha')
         plano_nome = dados_pagamento.get('plano') or dados_solicitante.get('plano')
@@ -132,7 +132,8 @@ class EmpresaRegistrationView(APIView):
                 nome=dados_empresa.get("razaoSocial"),
                 plano=plano_obj,
                 status_pagamento=status_pagamento,
-                lead=lead_score or 0  
+                lead=lead_score or 0,
+                area=setor_principal
             )
 
             usuario_rh = Usuario.objects.create_user(

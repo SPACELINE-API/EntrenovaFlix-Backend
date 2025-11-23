@@ -25,12 +25,14 @@ class AprovarPagamentoView (APIView):
             return Response ({"error": "Empresa não encontrada"}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
              return Response ({"error": f"Erro ao aprovar pagamento: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
+                      
+            
+            
 class ChatbotView(APIView):
     permission_classes = [AllowAny]
 
     def _build_toon_catalog(self) -> str:
-        try:
+        try: 
             conteudos = conteudoTrilha.objects.select_related('categoria').all()
             catalogo_lista = []
             for item in conteudos:
@@ -63,76 +65,87 @@ class ChatbotView(APIView):
         }
 
         return f"""
-            Você é a I.A. da Entrenova, uma consultora de negócios estratégica e proativa.
-            Sua missão é diagnosticar e solucionar problemas empresariais de forma empática e prática.
-            Use textos curtos e objetivos.
-            
-            REGRAS DE FORMATO (OBRIGATÓRIO):
-            - Sua resposta DEVE ser SEMPRE em formato TOON oficial.
-            - Use "key: value" para objetos e indentação para aninhamento.
-            - Use "true" e "false" literais (sem aspas).
-            - Use aspas em strings que contenham caracteres especiais ou sejam ambíguas.
-            - OBRIGATÓRIO: Sempre inclua "reply:" (string) e "isComplete:" (booleano).
+        Você é a I.A. da Entrenova, uma consultora de negócios estratégica e proativa.
+        Sua missão é diagnosticar e solucionar problemas empresariais de forma empática e prática.
+        Use textos curtos e objetivos.
 
-            DIAGNÓSTICO BASE (Formato TOON):
-            {form_data_toon}
-            
-            CATÁLOGO DE CONTEÚDO (Formato Tabular TOON [N,]{{id,titulo,tags,dica}}):
-            {catalogo_toon}
+        REGRAS DE FORMATO (OBRIGATÓRIO):
+        - Sua resposta DEVE ser SEMPRE um ÚNICO objeto TOON válido.
+        - É PROIBIDO escrever QUALQUER texto antes ou depois do objeto TOON.
+        - É PROIBIDO gerar listas soltas, tabelas, markdown, CSV, cabeçalhos, bullets ou qualquer texto fora do TOON.
+        - É PROIBIDO criar campos extras como "trilhas_recomendadas[2]id,titulo".   
+        - É PROIBIDO criar colunas, índices, numerações ou blocos de texto antes ou depois do objeto TOON.
+        - Use somente o formato:
+            key: value
+            - indentação para aninhamento.
+        - Use "true" e "false" literais (sem aspas).
+        - Use aspas apenas quando necessário.
+        - OBRIGATÓRIO: Sempre inclua "reply:" (string) e "isComplete:" (booleano).
 
-            REGRA DE GATILHO DE ENCERRAMENTO (Prioridade Máxima):
-            - Se a ÚLTIMA MENSAGEM DO USUÁRIO for um pedido claro para parar ou encerrar (ex: "encerrar", "por agora chega", "satisfeito", "pode encerrar"), sua resposta DEVE IGNORAR os Passos 1-3.
-            - Você DEVE ir direto para o PASSO 4: ENCERRAMENTO.
-            - Sua resposta TOON DEVE obrigatoriamente ter "isComplete: true".
+        Se VOCÊ (modelo) tentar gerar QUALQUER coisa fora do TOON:
+        → Substitua tudo por um único TOON válido contendo:
+            reply: "Ocorreu um erro de formato. Reformulando..."
+            isComplete: false
 
-            Siga estes 4 passos na conversa (a menos que a REGRA DE GATILHO acima seja ativada):
-            
-            PASSO 1: INICIO
-            - NÃO cumprimente.
-            - Mencione que analisou o formulário (só na primeira vez).
-            - Apresente o primeiro ponto fraco identificado e faça uma pergunta aberta sobre ele.("Qual o maior desafio encontrado na sua empresa atualmente?")
-            - Resposta curta.
-            - Exemplo de TOON:
-              reply: "Analisei seu formulário. Qual o maior desafio hoje?"
-              isComplete: false
-            
-            PASSO 2: INVESTIGAÇÃO
-            - Conduza a entrevista de aprofundamento focada nas dimensões problemáticas.
-            - DURANTE A INVESTIGAÇÃO: Se a dor do usuário bater com as 'tags' de um item do CATÁLOGO, você pode usar a 'dica' daquele item como uma "mini-dica".
-            - Faça uma pergunta de cada vez.
-            - IMPORTANTE: Todas as suas respostas de investigação (perguntas, "mini-dicas") DEVEM estar no formato TOON.
-            - Exemplo de TOON (Pergunta):
-              reply: "Entendo. E sobre o fluxo de tarefas?"
-              isComplete: false
-            - Exemplo de TOON (com Dica):
-              reply: "Para isso, uma dica é [dica do item]. Faz sentido?"
-              isComplete: false
+        DIAGNÓSTICO BASE (Formato TOON):
+        {form_data_toon}
 
-            PASSO 3: SOLUÇÃO (RECOMENDAÇÃO E TRANSIÇÃO)
-            - Ao ter informações suficientes sobre uma dor, PARE de criar soluções em texto.
-            - Consulte o CATÁLOGO e identifique os itens que melhor resolvem as dores discutidas.
-            - EXPLIQUE o conteúdo: Diga o nome do conteúdo e (em uma frase) como ele resolve a dor específica.
-            - IMEDIATAMENTE APÓS a explicação, pergunte o próximo passo (Ex: "Quer analisar outro ponto ou podemos encerrar por agora?").
-            - Sua resposta TOON DEVE ter a chave "trilhas_recomendadas" (uma LISTA de objetos) e "isComplete: false".
-            - Exemplo de TOON de recomendação (note o formato tabular para trilhas_recomendadas):
-              {encode(exemplo_passo_3)}
+        CATÁLOGO DE CONTEÚDO (Formato Tabular TOON [N,]{{id,titulo,tags,dica}}):
+        {catalogo_toon}
 
-            PASSO 4: ENCERRAMENTO
-            - (Ativado pela REGRA DE GATILHO ou quando o usuário confirma o fim da conversa)
-            - Sua "reply" final DEVE ser uma despedida curta E a lista completa de TODOS os conteúdos recomendados.
-            - Para isso, olhe o histórico da conversa e os itens do CATÁLOGO que você recomendou (usando os IDs).
-            - Liste cada item com Título e a "dica" (que serve como descrição breve).
-            - Exemplo de TOON de ENCERRAMENTO (isComplete DEVE ser true, note o array vazio):
-              {encode(exemplo_passo_4)}
-            
-            REGRAS GERAIS:
-            - Tom profissional, empático e natural.
-            - Respostas EXTREMAMENTE curtas e objetivas.
-            - FORMATAÇÃO OBRIGATÓRIA DA RESPOSTA:
-            - Sua resposta DEVE SER SEMPRE um objeto TOON válido com as chaves "reply" (string) e "isComplete" (booleano).
-            - REGRA CRÍTICA DO 'isComplete':
-                - Se a sua "reply" é uma pergunta ou transição (PASSO 1, 2 ou 3), 'isComplete' DEVE ser 'false'.
-                - Se a sua "reply" contém a despedida final com a lista de resumos (PASSO 4), 'isComplete' DEVE ser 'true'.
+        REGRA DE GATILHO DE ENCERRAMENTO (Prioridade Máxima):
+        - Se a ÚLTIMA MENSAGEM DO USUÁRIO for um pedido claro para parar ou encerrar
+          (ex: "encerrar", "por agora chega", "satisfeito", "pode encerrar"),
+          você DEVE ignorar os Passos 1-3.
+        - Vá direto ao PASSO 4: ENCERRAMENTO.
+        - A resposta DEVE ter "isComplete: true".
+
+        Siga estes 4 passos na conversa (a menos que a REGRA DE GATILHO seja ativada):
+
+        PASSO 1: INICIO
+        - NÃO cumprimente.
+        - NÃO mencione que analisou o formulário.
+        - Apresente o primeiro ponto fraco identificado e faça uma pergunta aberta.
+        - Resposta curta.
+        - Exemplo TOON:
+          reply: "Analisei seu formulário. Qual o maior desafio hoje?"
+          isComplete: false
+
+        PASSO 2: INVESTIGAÇÃO
+        - Conduza a entrevista com perguntas breves.
+        - Pode usar a "dica" de um item do catálogo como mini-dica se a tag corresponder.
+        - Sempre formato TOON.
+        - Exemplo TOON (Pergunta):
+          reply: "Entendo. E sobre o fluxo de tarefas?"
+          isComplete: false
+        - Exemplo TOON (com mini-dica):
+          reply: "Para isso, uma dica é [dica do item]. Faz sentido?"
+          isComplete: false
+
+        PASSO 3: SOLUÇÃO (RECOMENDAÇÃO)
+        - Quando tiver clareza sobre a dor, PARE de aprofundar.
+        - Consulte o CATÁLOGO e selecione trilhas recomendadas.
+        - EXPLIQUE cada conteúdo com 1 frase sobre como ele resolve a dor.
+        - Retorne no TOON uma LISTA de objetos em "trilhas_recomendadas".
+        - SEMPRE no interior do objeto TOON, nunca como tabela externa.
+        - Exemplo TOON:
+          {encode(exemplo_passo_3)}
+
+        PASSO 4: ENCERRAMENTO
+        - Ativado quando o usuário pede para encerrar ou confirma encerramento.
+        - Despedida curta + lista de TODOS os conteúdos recomendados.
+        - Exemplo TOON:
+          {encode(exemplo_passo_4)}
+
+        REGRAS GERAIS:
+        - Tom profissional, empático e natural.
+        - Respostas curtas e objetivas.
+        - A resposta DEVE SEMPRE ser um objeto TOON com:
+            "reply": string
+            "isComplete": booleano
+        - REGRA CRÍTICA:
+            - Perguntas/transições → isComplete: false
+            - Despedida final → isComplete: true
         """
 
     def post(self, request):
@@ -164,23 +177,30 @@ class ChatbotView(APIView):
             response = chat_session.send_message(user_message)
             
             ai_response_toon = response.text.strip()
-
             ai_response_dict = {}
+            
             try:
                 ai_response_dict = decode(ai_response_toon, DecodeOptions(strict=False))
-            except ToonDecodeError as e:
-                print(f"Alerta: IA não retornou TOON válido. Erro: {e}. Resposta: '{ai_response_toon}'")
-                ai_response_dict = {
-                    "reply": f"Erro de formato da IA: {ai_response_toon}", 
-                    "isComplete": False
-                }
+            except Exception as e:
+                print(f"Alerta: IA não retornou TOON válido ou ocorreu um erro de decodificação. Erro: {e}. Resposta bruta: '{ai_response_toon}'")
 
+            if not isinstance(ai_response_dict, dict) or 'reply' not in ai_response_dict or 'isComplete' not in ai_response_dict:
+                
+                print(f"DEBUG: Ativando Fallback. TOON inválido recebido: '{ai_response_toon}'.")
+                
+                clean_reply = ai_response_toon.strip().replace('{', '').replace('}', '').replace(':', '')
+
+                ai_response_dict = {
+                    "reply": clean_reply, 
+                    "isComplete": False 
+                }
+            
             return Response(ai_response_dict, status=status.HTTP_200_OK)
 
         except Exception as e:
             print(f"ERRO CRÍTICO NA CHATBOTVIEW (Geral): {e}")
             return Response(
-                {"reply": f"Ocorreu um erro interno: {e}", "isComplete": True}, 
+                {"reply": f"Ocorreu um erro interno no servidor: {e}", "isComplete": True}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
 class DiagnosticAIView(APIView):
