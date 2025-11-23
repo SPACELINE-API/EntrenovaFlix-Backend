@@ -92,9 +92,7 @@ class EmpresaRegistrationView(APIView):
     @transaction.atomic
     def post(self, request):
         dados = request.data
-
         lead_score = dados.get('leadScore')  
-
         dados_cadastro = dados.get('cadastro', {})
         dados_pagamento = dados.get('pagamento', {})
 
