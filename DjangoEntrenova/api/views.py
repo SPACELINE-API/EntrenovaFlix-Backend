@@ -98,7 +98,7 @@ class ChatbotView(APIView):
 
         PASSO 1: INICIO
         - NÃO cumprimente.
-        - Mencione que analisou o formulário (só na primeira vez).
+        - NÃO mencione que analisou o formulário.
         - Apresente o primeiro ponto fraco identificado e faça uma pergunta aberta.
         - Resposta curta.
         - Exemplo TOON:
